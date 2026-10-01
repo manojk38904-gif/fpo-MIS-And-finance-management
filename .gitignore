@@ -1,0 +1,6 @@
+# Repo-root safety net (backend/ has its own, more specific .gitignore)
+node_modules/
+dist/
+.env
+*.log
+*.tsbuildinfo

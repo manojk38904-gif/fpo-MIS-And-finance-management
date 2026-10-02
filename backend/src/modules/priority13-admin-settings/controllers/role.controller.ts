@@ -1,6 +1,7 @@
 import { Body, Controller, ForbiddenException, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../../common/auth/jwt-auth.guard.js';
+import { RequireTenantPermission, TenantPermissionGuard } from '../guards/tenant-permission.guard.js';
 import type { JwtPayload } from '../../../common/auth/jwt-payload.interface.js';
 import { RoleService } from '../services/role.service.js';
 import { CreateOrEditRoleDraftDto, DecisionReasonDto } from '../dto/role.dto.js';
@@ -16,7 +17,8 @@ interface AuthenticatedRequest extends Request {
  * pattern from Priority #1).
  */
 @Controller('api/v1/settings/roles')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantPermissionGuard)
+@RequireTenantPermission('SETTINGS.ROLE_MANAGE')
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 

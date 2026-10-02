@@ -153,7 +153,7 @@ export class UserProvisioningService {
     checkerId: string,
     toStatus: ApprovalStatus.ACTIVE | ApprovalStatus.REJECTED | ApprovalStatus.SENT_BACK,
     reason: string | null,
-  ): Promise<string | null> {
+  ): Promise<void> {
     // SET-07 point-40: once a DEACTIVATE request is approved, every active
     // session for the affected user must be invalidated immediately. The DB
     // state change commits first; Redis session revocation is then applied as
@@ -201,7 +201,7 @@ export class UserProvisioningService {
     manager: EntityManager,
     tenantId: string,
     req: UserProvisioningRequestEntity,
-  ): Promise<void> {
+  ): Promise<string | null> {
     const userRepo = manager.getRepository(UserAccountEntity);
     const branchAssignRepo = manager.getRepository(UserBranchAssignmentEntity);
 

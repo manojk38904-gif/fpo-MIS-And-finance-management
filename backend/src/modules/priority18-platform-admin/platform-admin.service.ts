@@ -415,7 +415,6 @@ export class PlatformAdminService {
 
   async createPlanVersion(actorAdminId: string, dto: NewPlanVersionDto) {
     validatePlan(dto);
-    const repo = this.dataSource.getRepository(SubscriptionPlanEntity);
     return this.dataSource.transaction(async (manager) => {
       const old = await manager.getRepository(SubscriptionPlanEntity).findOne({ where: { id: dto.supersedesId } });
       if (!old || old.status !== SubscriptionPlanStatus.ACTIVE) throw new ConflictException('Only the current active plan version can be superseded.');

@@ -9,6 +9,7 @@ import { UserBranchAssignmentEntity } from '../entities/user-branch-assignment.e
 import { RoleEntity } from '../entities/role.entity.js';
 import { ApprovalStatus } from '../entities/approval-status.enum.js';
 import type { CreateUserRequestDto, EditUserRequestDto } from '../dto/user-provisioning.dto.js';
+import { StaffSetupService } from './staff-setup.service.js';
 
 /**
  * SET-07 — Users, Owner Decision #A (MANDATORY MAKER-CHECKER). See
@@ -29,6 +30,7 @@ export class UserProvisioningService {
     private readonly txRunner: TenantAwareTransactionRunner,
     @Inject(AUDIT_EVENT_PORT) private readonly audit: AuditEventPort,
     @Inject(SESSION_STORE_PORT) private readonly sessionStore: SessionStorePort,
+    private readonly staffSetup: StaffSetupService,
   ) {}
 
   async list(tenantId: string): Promise<UserProvisioningRequestEntity[]> {
@@ -160,7 +162,7 @@ export class UserProvisioningService {
     // the authoritative active-session control. JwtStrategy also re-checks
     // the current user status on every request, so a suspended account is
     // denied even if a transport failure occurs while revoking Redis.
-    const revokeUserId = await this.txRunner.run(async (manager): Promise<string | null> => {
+    const effects = await this.txRunner.run(async (manager): Promise<{ revokeUserId: string | null; setupUserId: string | null }> => {
       const result = await manager
         .createQueryBuilder()
         .update(UserProvisioningRequestEntity)
@@ -185,11 +187,14 @@ export class UserProvisioningService {
         const req = await manager.getRepository(UserProvisioningRequestEntity).findOneOrFail({ where: { id: requestId, tenantId } });
         return this.applyApprovedRequest(manager, tenantId, req);
       }
-      return null;
+      return { revokeUserId: null, setupUserId: null };
     });
 
-    if (revokeUserId) {
-      await this.sessionStore.revokeAllSessionsForSubject('TENANT_USER', revokeUserId);
+    if (effects.revokeUserId) {
+      await this.sessionStore.revokeAllSessionsForSubject('TENANT_USER', effects.revokeUserId);
+    }
+    if (effects.setupUserId) {
+      await this.staffSetup.issue(tenantId, effects.setupUserId, checkerId);
     }
 
     const eventType =
@@ -201,7 +206,7 @@ export class UserProvisioningService {
     manager: EntityManager,
     tenantId: string,
     req: UserProvisioningRequestEntity,
-  ): Promise<string | null> {
+  ): Promise<{ revokeUserId: string | null; setupUserId: string | null }> {
     const userRepo = manager.getRepository(UserAccountEntity);
     const branchAssignRepo = manager.getRepository(UserBranchAssignmentEntity);
 
@@ -222,7 +227,7 @@ export class UserProvisioningService {
       if (req.branchAccessScope === 'SELECTED_BRANCH' && req.selectedBranchIds) {
         await branchAssignRepo.save(req.selectedBranchIds.map((branchId) => branchAssignRepo.create({ tenantId, userId: user.id, branchId })));
       }
-      return null;
+      return { revokeUserId: null, setupUserId: user.id };
     }
 
     if (!req.supersedesUserId) throw new BadRequestException('Request is missing its target user.');
@@ -232,12 +237,12 @@ export class UserProvisioningService {
     if (req.actionType === UserRequestActionType.DEACTIVATE) {
       target.status = UserAccountStatus.SUSPENDED;
       await userRepo.save(target);
-      return target.id;
+      return { revokeUserId: target.id, setupUserId: null };
     }
     if (req.actionType === UserRequestActionType.REACTIVATE) {
       target.status = UserAccountStatus.ACTIVE;
       await userRepo.save(target);
-      return null;
+      return { revokeUserId: null, setupUserId: null };
     }
 
     // EDIT
@@ -251,7 +256,7 @@ export class UserProvisioningService {
       await branchAssignRepo.delete({ tenantId, userId: target.id });
       await branchAssignRepo.save(req.selectedBranchIds.map((branchId) => branchAssignRepo.create({ tenantId, userId: target.id, branchId })));
     }
-    return null;
+    return { revokeUserId: null, setupUserId: null };
   }
 
   async approve(tenantId: string, requestId: string, checkerId: string): Promise<void> {

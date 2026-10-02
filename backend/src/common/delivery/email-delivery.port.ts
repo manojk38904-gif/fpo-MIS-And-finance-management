@@ -11,7 +11,7 @@ export type EmailTemplate =
   | 'PASSWORD_RESET_OTP'
   | 'TENANT_ACTIVATED'
   | 'INITIAL_ADMIN_SETUP_LINK'
-  | 'REGISTRATION_RESUME_LINK';
+  | 'REGISTRATION_RESUME_LINK'\n  | 'STAFF_USER_SETUP_LINK';
 
 export interface EmailMessage {
   to: string;

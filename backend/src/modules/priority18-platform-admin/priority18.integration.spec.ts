@@ -58,8 +58,8 @@ describe('Priority #18 — Platform Super Admin control-plane integration', () =
   let dataSource: DataSource;
 
   const ADMIN = 'eeeeeeee-1111-1111-1111-111111111111';
-  const TENANT = 'dddddddd-1111-1111-1111-111111111111';
-  const TENANT_USER = 'cccccccc-1111-1111-1111-111111111111';
+  const TENANT = 'dddddddd-1111-4111-8111-dddddddddddd';
+  const TENANT_USER = 'cccccccc-1111-4111-8111-cccccccccccc';
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [TestAppModule] }).compile();

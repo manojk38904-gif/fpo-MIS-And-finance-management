@@ -258,4 +258,85 @@ describe('Priority #13 — SET-08 Roles & Permissions (real PostgreSQL + Redis i
     const submit2 = await request(app.getHttpServer()).post(`/api/v1/settings/roles/${draft2.body.id}/submit`).set('Authorization', `Bearer ${makerToken}`).send({});
     expect(submit2.status).toBe(409);
   });
+
+  function validBranch(overrides: Record<string, unknown> = {}) {
+    return {
+      branchCode: `BR-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      branchName: 'Pune Regular Branch',
+      branchType: 'REGULAR',
+      address: '45 Market Yard, Pune',
+      state: 'Maharashtra',
+      district: 'Pune',
+      openingDate: '2024-01-01',
+      ...overrides,
+    };
+  }
+
+  describe('SET-03 — Branch Master (no maker-checker; immediate effect + own safety checks)', () => {
+    it('creates a branch immediately on Save, no approval step', async () => {
+      const token = await tokenFor(MAKER);
+      const res = await request(app.getHttpServer()).post('/api/v1/settings/branches').set('Authorization', `Bearer ${token}`).send(validBranch());
+      expect(res.status).toBe(201);
+      expect(res.body.isActive).toBe(true);
+    });
+
+    it('rejects a duplicate Branch Code within the same tenant', async () => {
+      const token = await tokenFor(MAKER);
+      const branch = validBranch();
+      const first = await request(app.getHttpServer()).post('/api/v1/settings/branches').set('Authorization', `Bearer ${token}`).send(branch);
+      expect(first.status).toBe(201);
+      const dup = await request(app.getHttpServer()).post('/api/v1/settings/branches').set('Authorization', `Bearer ${token}`).send(branch);
+      expect(dup.status).toBe(409);
+    });
+
+    it('allows only one active HEAD_OFFICE branch per tenant', async () => {
+      const token = await tokenFor(MAKER);
+      const first = await request(app.getHttpServer())
+        .post('/api/v1/settings/branches')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validBranch({ branchType: 'HEAD_OFFICE' }));
+      // A Head Office may already exist from a prior test run in this shared tenant — accept either a clean 201 or the expected conflict.
+      expect([201, 409]).toContain(first.status);
+      const second = await request(app.getHttpServer())
+        .post('/api/v1/settings/branches')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validBranch({ branchType: 'HEAD_OFFICE' }));
+      expect(second.status).toBe(409);
+    });
+
+    it('blocks changing Branch Code after creation (read-only per spec point 10)', async () => {
+      const token = await tokenFor(MAKER);
+      const created = await request(app.getHttpServer()).post('/api/v1/settings/branches').set('Authorization', `Bearer ${token}`).send(validBranch());
+      const attempt = await request(app.getHttpServer())
+        .put(`/api/v1/settings/branches/${created.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validBranch({ branchCode: 'SOME-OTHER-CODE' }));
+      expect(attempt.status).toBe(400);
+    });
+
+    it('deactivates and reactivates a REGULAR branch, preserving history (never deleted)', async () => {
+      const token = await tokenFor(MAKER);
+      const created = await request(app.getHttpServer()).post('/api/v1/settings/branches').set('Authorization', `Bearer ${token}`).send(validBranch());
+      const branchId = created.body.id;
+
+      const missingReason = await request(app.getHttpServer()).post(`/api/v1/settings/branches/${branchId}/deactivate`).set('Authorization', `Bearer ${token}`).send({});
+      expect(missingReason.status).toBe(400);
+
+      const deactivate = await request(app.getHttpServer())
+        .post(`/api/v1/settings/branches/${branchId}/deactivate`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reason: 'Branch closed — merged into HQ.' });
+      expect(deactivate.status).toBe(201);
+
+      const listAfterDeactivate = await request(app.getHttpServer()).get('/api/v1/settings/branches').set('Authorization', `Bearer ${token}`);
+      const found = listAfterDeactivate.body.find((b: { id: string }) => b.id === branchId);
+      expect(found.isActive).toBe(false);
+      expect(found.deactivationReason).toBe('Branch closed — merged into HQ.');
+
+      const reactivate = await request(app.getHttpServer()).post(`/api/v1/settings/branches/${branchId}/reactivate`).set('Authorization', `Bearer ${token}`).send({});
+      expect(reactivate.status).toBe(201);
+      const listAfterReactivate = await request(app.getHttpServer()).get('/api/v1/settings/branches').set('Authorization', `Bearer ${token}`);
+      expect(listAfterReactivate.body.find((b: { id: string }) => b.id === branchId).isActive).toBe(true);
+    });
+  });
 });

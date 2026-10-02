@@ -18,67 +18,49 @@ export default function OnboardingProgress() {
 
   async function refresh() {
     try {
-      const p = await getOnboardingProgress();
-      setProgress(p);
+      setProgress(await getOnboardingProgress());
     } catch (e) {
       setError(extractErrorMessage(e));
     }
   }
 
-  useEffect(() => {
-    void refresh();
-  }, []);
+  useEffect(() => { void refresh(); }, []);
 
   async function handleComplete(stepNumber: number) {
-    setBusy(true);
-    setError(null);
-    try {
-      await completeOnboardingStep(stepNumber);
-      await refresh();
-    } catch (e) {
-      setError(extractErrorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+    setBusy(true); setError(null);
+    try { await completeOnboardingStep(stepNumber); await refresh(); }
+    catch (e) { setError(extractErrorMessage(e)); }
+    finally { setBusy(false); }
   }
 
   async function handleSkip(stepNumber: number) {
-    setBusy(true);
-    setError(null);
-    try {
-      await skipOnboardingStep(stepNumber);
-      await refresh();
-    } catch (e) {
-      setError(extractErrorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+    setBusy(true); setError(null);
+    try { await skipOnboardingStep(stepNumber); await refresh(); }
+    catch (e) { setError(extractErrorMessage(e)); }
+    finally { setBusy(false); }
   }
 
   async function handleGoLiveCheck() {
-    setBusy(true);
-    setError(null);
+    setBusy(true); setError(null);
     try {
       const result = await checkGoLive();
-      setGoLiveBlocked(result.canGoLive ? [] : result.blockingReasons ?? ['Not ready yet.']);
-    } catch (e) {
-      setError(extractErrorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+      setGoLiveBlocked(result.passed ? [] : result.failures);
+    } catch (e) { setError(extractErrorMessage(e)); }
+    finally { setBusy(false); }
   }
 
   async function handleGoLive() {
-    setBusy(true);
-    setError(null);
+    setBusy(true); setError(null);
     try {
-      await goLive();
-      setLive(true);
-    } catch (e) {
-      setError(extractErrorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+      const result = await goLive();
+      if (result.passed) {
+        setLive(true);
+        setGoLiveBlocked([]);
+      } else {
+        setGoLiveBlocked(result.failures);
+      }
+    } catch (e) { setError(extractErrorMessage(e)); }
+    finally { setBusy(false); }
   }
 
   if (!progress) return <div className="card">{error ? <div className="error">{error}</div> : 'Loading onboarding progress…'}</div>;
@@ -86,34 +68,25 @@ export default function OnboardingProgress() {
   return (
     <div className="card">
       <h1>Onboarding Progress</h1>
+      <p className="muted">SYS-04 · 16-step onboarding with server-side Go-Live validation.</p>
       {error && <div className="error">{error}</div>}
       <ul className="steps">
-        {progress.steps.map((s) => (
+        {progress.map((s) => (
           <li key={s.stepNumber}>
-            <span>Step {s.stepNumber} — {s.status}</span>
+            <span><strong>Step {s.stepNumber}</strong> — {s.name}<br/><small>{s.status}{s.skippable ? ' · Optional/Skippable' : ' · Mandatory'}</small></span>
             <span className="step-actions">
-              <button disabled={busy} onClick={() => handleComplete(s.stepNumber)}>Mark complete</button>
-              <button disabled={busy} onClick={() => handleSkip(s.stepNumber)}>Skip</button>
+              <button disabled={busy || s.status === 'COMPLETE'} onClick={() => void handleComplete(s.stepNumber)}>Mark complete</button>
+              {s.skippable && <button className="secondary" disabled={busy || s.status === 'SKIPPED'} onClick={() => void handleSkip(s.stepNumber)}>Skip</button>}
             </span>
           </li>
         ))}
       </ul>
 
-      {live ? (
-        <p>✅ This FPO is now live.</p>
-      ) : (
-        <>
-          <button disabled={busy} onClick={handleGoLiveCheck}>Check Go-Live Readiness</button>
-          {goLiveBlocked && goLiveBlocked.length === 0 && (
-            <button disabled={busy} onClick={handleGoLive}>Go Live</button>
-          )}
-          {goLiveBlocked && goLiveBlocked.length > 0 && (
-            <ul className="error">
-              {goLiveBlocked.map((reason) => <li key={reason}>{reason}</li>)}
-            </ul>
-          )}
-        </>
-      )}
+      {live ? <p className="success">This FPO is now live.</p> : <>
+        <button disabled={busy} onClick={() => void handleGoLiveCheck()}>Check Go-Live Readiness</button>
+        {goLiveBlocked && goLiveBlocked.length === 0 && <button disabled={busy} onClick={() => void handleGoLive()}>Go Live</button>}
+        {goLiveBlocked && goLiveBlocked.length > 0 && <ul className="error">{goLiveBlocked.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
+      </>}
     </div>
   );
 }

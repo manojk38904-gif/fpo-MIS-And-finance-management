@@ -11,18 +11,27 @@ import { UserBranchAssignmentEntity } from './entities/user-branch-assignment.en
 import { UserProvisioningService } from './services/user-provisioning.service.js';
 import { UserProvisioningController } from './controllers/user-provisioning.controller.js';
 import { UserAccountEntity } from '../priority1-auth-registration/entities/user-account.entity.js';
+import { GovernedSettingEntity } from './entities/governed-setting.entity.js';
+import { DirectSettingEntity } from './entities/direct-setting.entity.js';
+import { DataExportRequestEntity } from './entities/data-export-request.entity.js';
+import { SettingsConfigService } from './services/settings-config.service.js';
+import { SettingsConfigController } from './controllers/settings-config.controller.js';
 
-/**
- * PHASE 2.2 — PRIORITY #13 — Administration / Settings / RBAC.
- * Built so far: SET-08 (Roles & Permissions), SET-03 (Branch Master), SET-07
- * (Users). The remaining 15 screens (SET-01,02,05,06,09,11,12,13,14,15,16,
- * 17,20,21,22) are not yet built — see backend/README.md for the honest
- * current-scope statement, including SET-07's own disclosed setup-link gap.
- */
 @Module({
-  imports: [TypeOrmModule.forFeature([RoleEntity, BranchEntity, UserProvisioningRequestEntity, UserBranchAssignmentEntity, UserAccountEntity])],
-  providers: [RoleService, BranchService, UserProvisioningService],
-  controllers: [RoleController, BranchController, UserProvisioningController],
-  exports: [RoleService, BranchService, UserProvisioningService],
+  imports: [
+    TypeOrmModule.forFeature([
+      RoleEntity,
+      BranchEntity,
+      UserProvisioningRequestEntity,
+      UserBranchAssignmentEntity,
+      UserAccountEntity,
+      GovernedSettingEntity,
+      DirectSettingEntity,
+      DataExportRequestEntity,
+    ]),
+  ],
+  providers: [RoleService, BranchService, UserProvisioningService, SettingsConfigService],
+  controllers: [RoleController, BranchController, UserProvisioningController, SettingsConfigController],
+  exports: [RoleService, BranchService, UserProvisioningService, SettingsConfigService],
 })
 export class Priority13AdminSettingsModule {}

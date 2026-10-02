@@ -8,7 +8,8 @@ const SUBJECTS: Record<EmailMessage['template'], string> = {
   PASSWORD_RESET_OTP: 'Your password reset code',
   TENANT_ACTIVATED: 'Your FPO account has been activated',
   INITIAL_ADMIN_SETUP_LINK: 'Set up your FPO Admin account',
-  REGISTRATION_RESUME_LINK: 'Resume your FPO registration',\n  STAFF_USER_SETUP_LINK: 'Set up your FPO staff account',
+  REGISTRATION_RESUME_LINK: 'Resume your FPO registration',
+  STAFF_USER_SETUP_LINK: 'Set up your FPO staff account',
 };
 
 /**

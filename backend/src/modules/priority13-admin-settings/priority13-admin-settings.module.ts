@@ -20,6 +20,8 @@ import { StaffSetupTokenEntity } from './entities/staff-setup-token.entity.js';
 import { StaffSetupService } from './services/staff-setup.service.js';
 import { StaffSetupController } from './controllers/staff-setup.controller.js';
 import { SettingsAssetController } from './controllers/settings-asset.controller.js';
+import { TenantRbacService } from './services/tenant-rbac.service.js';
+import { TenantPermissionGuard } from './guards/tenant-permission.guard.js';
 
 @Module({
   imports: [
@@ -34,8 +36,8 @@ import { SettingsAssetController } from './controllers/settings-asset.controller
       DataExportRequestEntity,
     ]),
   ],
-  providers: [RoleService, BranchService, UserProvisioningService, SettingsConfigService, StaffSetupService],
+  providers: [RoleService, BranchService, UserProvisioningService, SettingsConfigService, StaffSetupService, TenantRbacService, TenantPermissionGuard],
   controllers: [RoleController, BranchController, UserProvisioningController, SettingsConfigController, StaffSetupController, SettingsAssetController],
-  exports: [RoleService, BranchService, UserProvisioningService, SettingsConfigService, StaffSetupService],
+  exports: [RoleService, BranchService, UserProvisioningService, SettingsConfigService, StaffSetupService, TenantRbacService, TenantPermissionGuard],
 })
 export class Priority13AdminSettingsModule {}

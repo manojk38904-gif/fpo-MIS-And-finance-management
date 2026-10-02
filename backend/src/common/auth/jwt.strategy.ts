@@ -112,6 +112,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException(SESSION_INVALID);
     }
 
-    return { sub: payload.sub, tenantId: payload.tenantId, isPlatformSuperAdmin: false, platformRole: null, sid: payload.sid };
+    return { sub: payload.sub, tenantId: payload.tenantId, isPlatformSuperAdmin: false, platformRole: null, roleId: payload.roleId ?? null, sid: payload.sid };
   }
 }

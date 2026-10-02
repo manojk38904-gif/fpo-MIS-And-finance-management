@@ -1,6 +1,7 @@
 import { Body, Controller, ForbiddenException, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../../common/auth/jwt-auth.guard.js';
+import { RequireTenantPermission, TenantPermissionGuard } from '../guards/tenant-permission.guard.js';
 import type { JwtPayload } from '../../../common/auth/jwt-payload.interface.js';
 import { BranchService } from '../services/branch.service.js';
 import { CreateOrUpdateBranchDto, DeactivateBranchDto } from '../dto/branch.dto.js';
@@ -10,7 +11,8 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('api/v1/settings/branches')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantPermissionGuard)
+@RequireTenantPermission('SETTINGS.CONFIGURE')
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}
 

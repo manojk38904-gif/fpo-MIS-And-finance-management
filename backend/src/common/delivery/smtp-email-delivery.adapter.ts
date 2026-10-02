@@ -40,6 +40,9 @@ export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
         host,
         port: this.config.get<number>('smtp.port'),
         secure: this.config.get<boolean>('smtp.secure'),
+        // Render's free service cannot route to Gmail's IPv6 SMTP address.
+        // Prefer IPv4 so the configured SMTP provider stays reachable.
+        family: 4,
         auth: this.config.get<string>('smtp.user')
           ? { user: this.config.get<string>('smtp.user'), pass: this.config.get<string>('smtp.pass') }
           : undefined,

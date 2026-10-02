@@ -20,47 +20,42 @@ export enum OnboardingStepStatus {
 }
 
 /**
- * Correction-pass item 17: the frozen Priority #1 v1.2 text's "पाँच Explicit
- * Properties (Owner Decision #7)" §1-2 ONLY classifies steps {1,3,4,6,7,8,9,
- * 10,12} as non-skippable-mandatory and {13,14,15} as skippable-optional. It
- * does NOT conclusively classify steps 2 (Logo & Branding), 5 (Bank
- * Accounts), 11 (Staff Users), 16 (Authorised Signatures) either way in that
- * enumeration. The previous pass silently invented "non-skippable" for all
- * four — exactly the unauthorised invention the Owner's correction flags.
+ * Owner completion decision (2026-10-03) resolves the four previously
+ * unclassified SYS-04 onboarding steps without changing the frozen
+ * mandatory list:
  *
- * Per the Owner's own instruction ("if the frozen text does not conclusively
- * classify 2/5/11/16, record: OWNER DECISION/SPECIFICATION CLARIFICATION
- * REQUIRED rather than deciding on behalf of the Owner"), this is NOT
- * resolved here. `skippable: false` below for steps 2/5/11/16 is kept ONLY
- * as the safer interim runtime default (so Go-Live cannot be bypassed by a
- * missing classification) — it is explicitly NOT a claim that the frozen
- * spec requires this, and must not be read as such. See
- * FPO_SaaS_PHASE_2.2_PHASE1_IMPLEMENTATION_PROGRESS_v1.0.md §"Open Owner
- * Decisions" for the formally recorded open item.
+ * 2  Logo & Branding       = OPTIONAL
+ * 5  Bank Accounts         = CONDITIONAL-MANDATORY (not a basic Go-Live
+ *                            blocker; required by bank-dependent operations)
+ * 11 Staff Users           = OPTIONAL AT INITIAL GO-LIVE
+ * 16 Authorised Signatures = CONDITIONAL-MANDATORY (not a basic Go-Live
+ *                            blocker; required by signature-dependent flows)
+ *
+ * In SYS-04 this means all four may be skipped during basic onboarding.
+ * Their conditional downstream enforcement belongs to the owning operation
+ * that actually needs the bank/signature configuration and must never be
+ * satisfied by fake placeholder data.
  */
 export const ONBOARDING_STEPS: ReadonlyArray<{ stepNumber: number; name: string; skippable: boolean }> = [
-  { stepNumber: 1, name: 'Organisation Profile', skippable: false }, // frozen: mandatory
-  { stepNumber: 2, name: 'Logo & Branding', skippable: false }, // UNCLASSIFIED in frozen text — interim default only, OWNER DECISION REQUIRED
-  { stepNumber: 3, name: 'Registered Office', skippable: false }, // frozen: mandatory
-  { stepNumber: 4, name: 'Branches / Head Office', skippable: false }, // frozen: mandatory
-  { stepNumber: 5, name: 'Bank Accounts', skippable: false }, // UNCLASSIFIED in frozen text — interim default only, OWNER DECISION REQUIRED
-  { stepNumber: 6, name: 'Financial Year', skippable: false }, // frozen: mandatory
-  { stepNumber: 7, name: 'Credit Policy', skippable: false }, // frozen: mandatory
-  { stepNumber: 8, name: 'Interest Policy', skippable: false }, // frozen: mandatory
-  { stepNumber: 9, name: 'Loan Products', skippable: false }, // frozen: mandatory
-  { stepNumber: 10, name: 'Approval Hierarchy', skippable: false }, // frozen: mandatory
-  { stepNumber: 11, name: 'Staff Users (+ Branch assignment)', skippable: false }, // UNCLASSIFIED in frozen text — interim default only, OWNER DECISION REQUIRED
-  { stepNumber: 12, name: 'Accounting Settings', skippable: false }, // frozen: mandatory
-  { stepNumber: 13, name: 'Email Settings', skippable: true }, // frozen: optional-integration
-  { stepNumber: 14, name: 'WhatsApp Settings', skippable: true }, // frozen: optional-integration
-  { stepNumber: 15, name: 'Document Templates', skippable: true }, // frozen: optional-integration
-  { stepNumber: 16, name: 'Authorised Signatures', skippable: false }, // UNCLASSIFIED in frozen text — interim default only, OWNER DECISION REQUIRED
+  { stepNumber: 1, name: 'Organisation Profile', skippable: false },
+  { stepNumber: 2, name: 'Logo & Branding', skippable: true },
+  { stepNumber: 3, name: 'Registered Office', skippable: false },
+  { stepNumber: 4, name: 'Branches / Head Office', skippable: false },
+  { stepNumber: 5, name: 'Bank Accounts', skippable: true },
+  { stepNumber: 6, name: 'Financial Year', skippable: false },
+  { stepNumber: 7, name: 'Credit Policy', skippable: false },
+  { stepNumber: 8, name: 'Interest Policy', skippable: false },
+  { stepNumber: 9, name: 'Loan Products', skippable: false },
+  { stepNumber: 10, name: 'Approval Hierarchy', skippable: false },
+  { stepNumber: 11, name: 'Staff Users (+ Branch assignment)', skippable: true },
+  { stepNumber: 12, name: 'Accounting Settings', skippable: false },
+  { stepNumber: 13, name: 'Email Settings', skippable: true },
+  { stepNumber: 14, name: 'WhatsApp Settings', skippable: true },
+  { stepNumber: 15, name: 'Document Templates', skippable: true },
+  { stepNumber: 16, name: 'Authorised Signatures', skippable: true },
 ];
 
-/** Steps the frozen text leaves unclassified — surfaced here (not only in a
- *  comment) so the progress record / report can render this mechanically,
- *  not by re-reading source comments. */
-export const ONBOARDING_STEPS_PENDING_OWNER_CLASSIFICATION: ReadonlyArray<number> = [2, 5, 11, 16];
+export const ONBOARDING_STEPS_PENDING_OWNER_CLASSIFICATION: ReadonlyArray<number> = [];
 
 @Entity('onboarding_step_progress')
 @Index(['tenantId', 'stepNumber'], { unique: true })

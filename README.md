@@ -21,7 +21,8 @@ docs/      (empty here — specification documents are tracked in the project wo
 |---|---|
 | Priority #1 — Auth/Registration/Onboarding (backend) | Implemented, security/spec-conformance corrected, 71/71 tests passing (real PostgreSQL + Redis) |
 | Priority #1 — Frontend | First working version: registration wizard, OTP, document upload, FPO login, Platform Admin login + TOTP, password setup, onboarding/Go-Live screens. Builds clean, 0 lint errors, draft-creation flow verified live against the real backend. **Not yet styled/reviewed for production UX, and SMTP must be configured for OTP email to actually send.** |
-| Priority #2–#18 (members, credit, loans, accounting, collections, reports, platform admin, etc.) | **Specifications frozen; code not started** |
+| Priority #13 — Admin/Settings/RBAC | **In progress.** SET-08 (Roles & Permissions) implemented and tested against its frozen spec (v1.3): Maker-Checker-governed create/submit/approve/reject/send-back, DB-level Maker≠Checker enforcement, atomic CAS (safe under concurrent Checkers), versioned supersession (old Active role never deleted), full audit trail. The remaining 17 of 18 screens (SET-01,02,03,05,06,07,09,11,12,13,14,15,16,17,20,21,22) are **not yet built**. |
+| Priority #2–#12, #14–#18 (members, credit, loans, accounting, collections, reports, platform admin, etc.) | **Specifications frozen; code not started** |
 | Production-ready / deployable as a complete product | **No** — only one of eighteen planned modules exists |
 
 ### Running the frontend locally

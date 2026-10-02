@@ -15,6 +15,7 @@ import { OptionalJwtAuthGuard } from './common/auth/optional-jwt-auth.guard.js';
 import { HealthModule } from './health/health.module.js';
 import { AuditModule } from './common/audit/audit.module.js';
 import { Priority1AuthRegistrationModule } from './modules/priority1-auth-registration/priority1-auth-registration.module.js';
+import { Priority13AdminSettingsModule } from './modules/priority13-admin-settings/priority13-admin-settings.module.js';
 
 @Module({
   imports: [
@@ -47,9 +48,11 @@ import { Priority1AuthRegistrationModule } from './modules/priority1-auth-regist
     DatabaseModule,
     HealthModule,
     // Priority #1 (Auth/Registration/Onboarding) is implemented and wired as of
-    // this pass. Priority #13 (Admin/Settings/RBAC) and Priority #18 (Platform
-    // Super Admin screens) are added here once their own tasks build them.
+    // this pass. Priority #13 (Admin/Settings/RBAC) is being built incrementally
+    // — SET-08 (Roles & Permissions) only so far. Priority #18 (Platform Super
+    // Admin screens) is added here once its own task builds it.
     Priority1AuthRegistrationModule,
+    Priority13AdminSettingsModule,
   ],
   providers: [
     // Execution order for a request: Guards (in provider order) -> Interceptors.

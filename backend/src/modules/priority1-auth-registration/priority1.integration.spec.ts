@@ -636,13 +636,14 @@ describe('Priority #1 — Auth / Registration / Onboarding (real PostgreSQL + Re
     });
 
     it('SYS-04: completing/skipping all 16 steps is tracked correctly, mandatory steps cannot be skipped', async () => {
-      // Per item 17 — only {13,14,15} are frozen-skippable; {2,5,11,16} are
-      // an interim default, not a frozen claim (see ONBOARDING_STEPS's own
-      // doc-comment and the progress record's Open Owner Decisions section).
-      expect(ONBOARDING_STEPS_PENDING_OWNER_CLASSIFICATION).toEqual([2, 5, 11, 16]);
+      // Owner completion decision resolved the four previously-unclassified
+      // steps: 2 optional, 5 conditional, 11 optional-at-initial-Go-Live,
+      // 16 conditional. Conditional steps may be skipped in SYS-04; the
+      // downstream operation that actually needs them must enforce them.
+      expect(ONBOARDING_STEPS_PENDING_OWNER_CLASSIFICATION).toEqual([]);
 
-      const mandatorySteps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16];
-      const skippableSteps = [13, 14, 15];
+      const mandatorySteps = [1, 3, 4, 6, 7, 8, 9, 10, 12];
+      const skippableSteps = [2, 5, 11, 13, 14, 15, 16];
 
       const cannotSkipMandatory = await request(app.getHttpServer()).post('/api/v1/onboarding/steps/1/skip').set('Authorization', `Bearer ${accessToken}`);
       expect(cannotSkipMandatory.status).toBe(400);
@@ -665,7 +666,7 @@ describe('Priority #1 — Auth / Registration / Onboarding (real PostgreSQL + Re
       expect(relogin.body.onboardingComplete).toBe(true);
     });
 
-    it('SYS-04 Go-Live Gate: BLOCKS honestly with no fake bypass, since Priority #4/#5/#10/#13 do not exist yet', async () => {
+    it('SYS-04 Go-Live Gate: BLOCKS honestly with no fake downstream bypass while required owning modules/configuration remain unavailable', async () => {
       const check = await request(app.getHttpServer()).get('/api/v1/onboarding/go-live/check').set('Authorization', `Bearer ${accessToken}`);
       expect(check.status).toBe(200);
       expect(check.body.passed).toBe(false);

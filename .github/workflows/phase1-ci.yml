@@ -20,13 +20,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: fpo_app_user
-          POSTGRES_PASSWORD: changeme
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: fpo_saas
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U fpo_app_user -d fpo_saas"
+          --health-cmd "pg_isready -U postgres -d fpo_saas"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -57,6 +57,28 @@ jobs:
           node-version-file: backend/.nvmrc
           cache: npm
           cache-dependency-path: backend/package-lock.json
+      - name: Create least-privilege application database role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d fpo_saas -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fpo_app_user') THEN
+              CREATE ROLE fpo_app_user
+                LOGIN
+                PASSWORD 'changeme'
+                NOSUPERUSER
+                NOCREATEDB
+                NOCREATEROLE
+                NOINHERIT
+                NOBYPASSRLS;
+            END IF;
+          END
+          $$;
+          GRANT CONNECT ON DATABASE fpo_saas TO fpo_app_user;
+          GRANT USAGE, CREATE ON SCHEMA public TO fpo_app_user;
+          SQL
       - run: npm ci --legacy-peer-deps
       - run: npm run build
       - run: npm run lint

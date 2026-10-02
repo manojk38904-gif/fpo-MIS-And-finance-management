@@ -2,13 +2,16 @@
 
 Multi-tenant SaaS platform for Farmer Producer Organisations (FPOs) in India — member management, KYC, credit scoring, agricultural input/member credit, approvals, disbursement, repayment, automated accounting, and reporting, with strict per-FPO data isolation.
 
-**This repository currently contains Priority #1 only** (Auth / Registration / Onboarding). See [`backend/README.md`](backend/README.md) for exactly what is implemented, what is explicitly out of scope, and how to run it. Priority #2–#18 (members/KYC, credit products, accounting, collections, platform admin, etc.) have frozen specification documents but no code yet — see below.
+**This repository currently contains Priority #1 only** (Auth / Registration / Onboarding) — backend and a first frontend. See [`backend/README.md`](backend/README.md) for exactly what is implemented, what is explicitly out of scope, and how to run it. Priority #2–#18 (members/KYC, credit products, accounting, collections, platform admin, etc.) have frozen specification documents but no code yet — see below.
 
 ## Repository layout
 
 ```
 backend/   NestJS (TypeScript) API — Priority #1 (Auth/Registration/Onboarding) implemented and tested
-frontend/  Not started yet
+frontend/  React + TypeScript (Vite) — Priority #1 screens: FPO self-registration wizard, OTP,
+           document upload, FPO login, Platform Super Admin login (password + TOTP), password
+           setup, onboarding progress / Go-Live. Calls the backend's real, tested API routes
+           directly (src/api/*.ts) — no mocked or placeholder business logic.
 docs/      (empty here — specification documents are tracked in the project workspace, not this repo)
 ```
 
@@ -17,9 +20,18 @@ docs/      (empty here — specification documents are tracked in the project wo
 | Area | Status |
 |---|---|
 | Priority #1 — Auth/Registration/Onboarding (backend) | Implemented, security/spec-conformance corrected, 71/71 tests passing (real PostgreSQL + Redis) |
+| Priority #1 — Frontend | First working version: registration wizard, OTP, document upload, FPO login, Platform Admin login + TOTP, password setup, onboarding/Go-Live screens. Builds clean, 0 lint errors, draft-creation flow verified live against the real backend. **Not yet styled/reviewed for production UX, and SMTP must be configured for OTP email to actually send.** |
 | Priority #2–#18 (members, credit, loans, accounting, collections, reports, platform admin, etc.) | **Specifications frozen; code not started** |
-| Frontend (any priority) | **Not started** |
 | Production-ready / deployable as a complete product | **No** — only one of eighteen planned modules exists |
+
+### Running the frontend locally
+```
+cd frontend
+npm install
+cp .env.example .env   # points at the backend; edit VITE_API_BASE_URL if needed
+npm run dev
+```
+Requires the backend (see `backend/README.md`) running and reachable at the configured API URL.
 
 Full detail: `backend/README.md` and `backend/FPO_SaaS_PHASE_2.2_PHASE1_IMPLEMENTATION_PROGRESS_v1.0.md`-equivalent progress record (kept in the project workspace).
 

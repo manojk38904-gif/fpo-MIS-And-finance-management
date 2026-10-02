@@ -3,6 +3,7 @@ import { KnownTenantTransactionRunner } from '../../../common/tenant-context/kno
 import { UserAccountEntity } from '../../priority1-auth-registration/entities/user-account.entity.js';
 import { ApprovalStatus } from '../entities/approval-status.enum.js';
 import { RoleEntity } from '../entities/role.entity.js';
+import { GovernedSettingEntity } from '../entities/governed-setting.entity.js';
 
 export const SETTINGS_PERMISSION_CODES = [
   'SETTINGS.CONFIGURE',
@@ -76,6 +77,13 @@ export class TenantRbacService {
         await users.save(initialAdmin);
       }
       return role;
+    });
+  }
+
+  async governedSubmissionScreen(tenantId: string, submissionId: string): Promise<string | null> {
+    return this.knownTenantTx.run(tenantId, async (manager) => {
+      const row = await manager.getRepository(GovernedSettingEntity).findOne({ where: { id: submissionId, tenantId } });
+      return row?.screenId ?? null;
     });
   }
 

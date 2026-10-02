@@ -85,7 +85,7 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm run migration:run
-      - run: npm run test
+      - run: npm run test -- --no-file-parallelism
 
   frontend:
     name: Frontend build and lint

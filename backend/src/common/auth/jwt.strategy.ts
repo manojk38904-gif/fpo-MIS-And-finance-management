@@ -88,7 +88,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (!admin || admin.status !== PlatformAdminStatus.ACTIVE) {
         throw new UnauthorizedException(SESSION_INVALID);
       }
-      return { sub: payload.sub, tenantId: null, isPlatformSuperAdmin: true, sid: payload.sid };
+      return { sub: payload.sub, tenantId: null, isPlatformSuperAdmin: true, platformRole: admin.role, sid: payload.sid };
     }
 
     if (session.subjectType !== 'TENANT_USER' || !payload.tenantId || session.tenantId !== payload.tenantId) {
@@ -107,6 +107,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException(SESSION_INVALID);
     }
 
-    return { sub: payload.sub, tenantId: payload.tenantId, isPlatformSuperAdmin: false, sid: payload.sid };
+    return { sub: payload.sub, tenantId: payload.tenantId, isPlatformSuperAdmin: false, platformRole: null, sid: payload.sid };
   }
 }

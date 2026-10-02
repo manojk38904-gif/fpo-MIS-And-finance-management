@@ -339,4 +339,130 @@ describe('Priority #13 — SET-08 Roles & Permissions (real PostgreSQL + Redis i
       expect(listAfterReactivate.body.find((b: { id: string }) => b.id === branchId).isActive).toBe(true);
     });
   });
+
+  describe('SET-07 — Users (Maker-Checker; real user_account rows created on approval)', () => {
+    async function activeRole(makerToken: string, checkerToken: string): Promise<string> {
+      const roleId = await createAndSubmitRole(makerToken, `Field Officer ${Date.now()}-${Math.random()}`);
+      await request(app.getHttpServer()).post(`/api/v1/settings/roles/${roleId}/approve`).set('Authorization', `Bearer ${checkerToken}`).send({});
+      return roleId;
+    }
+
+    async function activeBranch(makerToken: string): Promise<string> {
+      const res = await request(app.getHttpServer()).post('/api/v1/settings/branches').set('Authorization', `Bearer ${makerToken}`).send(validBranch());
+      return res.body.id;
+    }
+
+    it('rejects a Create request naming a Role that is not currently Active', async () => {
+      const token = await tokenFor(MAKER);
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/settings/users/requests')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ fullName: 'Asha Patil', mobile: '9123456780', roleId: '00000000-0000-0000-0000-000000000000', branchAccessScope: 'ALL_BRANCHES' });
+      expect(res.status).toBe(400);
+    });
+
+    it('creates a real, PENDING_SETUP user_account row only once the request is Approved (never on Submit)', async () => {
+      const makerToken = await tokenFor(MAKER);
+      const checkerToken = await tokenFor(CHECKER);
+      const roleId = await activeRole(makerToken, checkerToken);
+      const branchId = await activeBranch(makerToken);
+
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/settings/users/requests')
+        .set('Authorization', `Bearer ${makerToken}`)
+        .send({ fullName: 'Asha Patil', mobile: '9123456781', roleId, branchAccessScope: 'SELECTED_BRANCH', selectedBranchIds: [branchId] });
+      expect(createRes.status).toBe(201);
+      const requestId = createRes.body.id;
+
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${requestId}/submit`).set('Authorization', `Bearer ${makerToken}`).send({});
+
+      const beforeApprove = await request(app.getHttpServer()).get('/api/v1/settings/users/requests').set('Authorization', `Bearer ${makerToken}`);
+      expect(beforeApprove.body.find((r: { id: string }) => r.id === requestId).status).toBe('PENDING_APPROVAL');
+
+      const approveRes = await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${requestId}/approve`).set('Authorization', `Bearer ${checkerToken}`).send({});
+      expect(approveRes.status).toBe(201);
+
+      const userRepo = dataSource.getRepository(UserAccountEntity);
+      const createdUser = await new KnownTenantTransactionRunner(dataSource).run(TENANT_A, (manager) =>
+        manager.getRepository(UserAccountEntity).findOne({ where: { tenantId: TENANT_A, mobile: '9123456781' } }),
+      );
+      expect(createdUser).not.toBeNull();
+      expect(createdUser!.status).toBe('PENDING_SETUP');
+      expect(createdUser!.roleId).toBe(roleId);
+      expect(createdUser!.fullName).toBe('Asha Patil');
+      void userRepo; // repo var kept for clarity of intent; actual read goes through the RLS-aware KnownTenantTransactionRunner above.
+    });
+
+    it('blocks the Maker from approving their own user-creation request', async () => {
+      const makerToken = await tokenFor(MAKER);
+      const checkerToken = await tokenFor(CHECKER);
+      const roleId = await activeRole(makerToken, checkerToken);
+
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/settings/users/requests')
+        .set('Authorization', `Bearer ${makerToken}`)
+        .send({ fullName: 'Self Approve User', mobile: '9123456782', roleId, branchAccessScope: 'ALL_BRANCHES' });
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${createRes.body.id}/submit`).set('Authorization', `Bearer ${makerToken}`).send({});
+
+      const selfApprove = await request(app.getHttpServer())
+        .post(`/api/v1/settings/users/requests/${createRes.body.id}/approve`)
+        .set('Authorization', `Bearer ${makerToken}`)
+        .send({});
+      expect(selfApprove.status).toBe(403);
+    });
+
+    it('Edit request changes an existing user\'s Role once approved; Deactivate/Reactivate toggle status', async () => {
+      const makerToken = await tokenFor(MAKER);
+      const checkerToken = await tokenFor(CHECKER);
+      const roleId1 = await activeRole(makerToken, checkerToken);
+      const roleId2 = await activeRole(makerToken, checkerToken);
+
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/settings/users/requests')
+        .set('Authorization', `Bearer ${makerToken}`)
+        .send({ fullName: 'Edit Target User', mobile: '9123456783', roleId: roleId1, branchAccessScope: 'ALL_BRANCHES' });
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${createRes.body.id}/submit`).set('Authorization', `Bearer ${makerToken}`).send({});
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${createRes.body.id}/approve`).set('Authorization', `Bearer ${checkerToken}`).send({});
+
+      const createdUser = await new KnownTenantTransactionRunner(dataSource).run(TENANT_A, (manager) =>
+        manager.getRepository(UserAccountEntity).findOneOrFail({ where: { tenantId: TENANT_A, mobile: '9123456783' } }),
+      );
+
+      const editRes = await request(app.getHttpServer())
+        .post('/api/v1/settings/users/requests/edit')
+        .set('Authorization', `Bearer ${makerToken}`)
+        .send({ targetUserId: createdUser.id, roleId: roleId2 });
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${editRes.body.id}/submit`).set('Authorization', `Bearer ${makerToken}`).send({});
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${editRes.body.id}/approve`).set('Authorization', `Bearer ${checkerToken}`).send({});
+
+      const afterEdit = await new KnownTenantTransactionRunner(dataSource).run(TENANT_A, (manager) =>
+        manager.getRepository(UserAccountEntity).findOneOrFail({ where: { id: createdUser.id } }),
+      );
+      expect(afterEdit.roleId).toBe(roleId2);
+
+      const deactivateRes = await request(app.getHttpServer())
+        .post('/api/v1/settings/users/requests/deactivate')
+        .set('Authorization', `Bearer ${makerToken}`)
+        .send({ targetUserId: createdUser.id });
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${deactivateRes.body.id}/submit`).set('Authorization', `Bearer ${makerToken}`).send({});
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${deactivateRes.body.id}/approve`).set('Authorization', `Bearer ${checkerToken}`).send({});
+
+      const afterDeactivate = await new KnownTenantTransactionRunner(dataSource).run(TENANT_A, (manager) =>
+        manager.getRepository(UserAccountEntity).findOneOrFail({ where: { id: createdUser.id } }),
+      );
+      expect(afterDeactivate.status).toBe('SUSPENDED');
+
+      const reactivateRes = await request(app.getHttpServer())
+        .post('/api/v1/settings/users/requests/reactivate')
+        .set('Authorization', `Bearer ${makerToken}`)
+        .send({ targetUserId: createdUser.id });
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${reactivateRes.body.id}/submit`).set('Authorization', `Bearer ${makerToken}`).send({});
+      await request(app.getHttpServer()).post(`/api/v1/settings/users/requests/${reactivateRes.body.id}/approve`).set('Authorization', `Bearer ${checkerToken}`).send({});
+
+      const afterReactivate = await new KnownTenantTransactionRunner(dataSource).run(TENANT_A, (manager) =>
+        manager.getRepository(UserAccountEntity).findOneOrFail({ where: { id: createdUser.id } }),
+      );
+      expect(afterReactivate.status).toBe('ACTIVE');
+    });
+  });
 });

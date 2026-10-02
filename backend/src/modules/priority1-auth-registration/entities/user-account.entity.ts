@@ -50,6 +50,22 @@ export class UserAccountEntity {
   @Column({ type: 'boolean', default: false })
   isInitialFpoAdmin!: boolean;
 
+  /**
+   * Added by Priority #13 (SET-07 Users), additive/nullable only — exactly
+   * the "full staff-user provisioning, roles and RBAC" extension this
+   * entity's own original comment anticipated. Null for the Initial FPO
+   * Admin (created directly by Priority #1's own SA-01 hook, before any
+   * Role exists to assign) until an Admin assigns one via SET-07.
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  fullName!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  roleId!: string | null;
+
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  branchAccessScope!: 'SELECTED_BRANCH' | 'ALL_BRANCHES' | null;
+
   @Column({ type: 'enum', enum: UserAccountStatus, default: UserAccountStatus.PENDING_SETUP })
   status!: UserAccountStatus;
 

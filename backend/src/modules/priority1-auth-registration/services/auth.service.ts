@@ -133,7 +133,7 @@ export class AuthService {
       await userRepo.save(user);
 
       const onboardingComplete = await this.isOnboardingComplete(manager, tenant.id);
-      const tokens = await this.issueTenantTokens(tenant.id, user.id, meta);
+      const tokens = await this.issueTenantTokens(tenant.id, user.id, user.roleId, meta);
       await this.audit.record({ eventType: 'auth.login.success', tenantId: tenant.id, actorUserId: user.id, metadata: { ...ipMeta(meta) } });
 
       return { kind: 'success' as const, value: { ...tokens, onboardingComplete, isInitialFpoAdmin: user.isInitialFpoAdmin } };
@@ -186,7 +186,7 @@ export class AuthService {
   // --------------------------------------------------------------- Tokens
   // setup_token / user_refresh_token are NOT RLS-protected (lookup-by-secret
   // access pattern — see entity docs) so these can use dataSource directly.
-  private async issueTenantTokens(tenantId: string, userId: string, meta: RequestMetadata): Promise<{ accessToken: string; refreshToken: string }> {
+  private async issueTenantTokens(tenantId: string, userId: string, roleId: string | null, meta: RequestMetadata): Promise<{ accessToken: string; refreshToken: string }> {
     const expiryDays = this.config.get<number>('refreshToken.expiryDays') ?? 30;
     const ttlSeconds = expiryDays * 24 * 60 * 60;
 
@@ -200,7 +200,7 @@ export class AuthService {
       userAgent: meta.userAgent,
     });
 
-    const payload: JwtPayload = { sub: userId, tenantId, isPlatformSuperAdmin: false, sid: session.sessionId };
+    const payload: JwtPayload = { sub: userId, tenantId, isPlatformSuperAdmin: false, roleId, sid: session.sessionId };
     const accessToken = await this.jwtService.signAsync(payload);
 
     const rawRefresh = this.secretHasher.generateOpaqueSecret();
@@ -267,7 +267,7 @@ export class AuthService {
       throw new UnauthorizedException('This account is no longer active.');
     }
 
-    const newTokens = await this.issueTenantTokens(record.tenantId, record.userId, meta);
+    const newTokens = await this.issueTenantTokens(record.tenantId, record.userId, user.roleId, meta);
     const newHash = this.secretHasher.hash(newTokens.refreshToken);
     const newRecord = await repo.findOne({ where: { tokenHash: newHash } });
     // Correction-pass item 13 fix: `record` is the in-memory snapshot read

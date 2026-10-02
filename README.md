@@ -1,41 +1,113 @@
 # FPO Member Agricultural Input & Credit Management System
 
-Multi-tenant SaaS platform for Farmer Producer Organisations (FPOs) in India — member management, KYC, credit scoring, agricultural input/member credit, approvals, disbursement, repayment, automated accounting, and reporting, with strict per-FPO data isolation.
+Multi-tenant SaaS foundation for Farmer Producer Organisations (FPOs) in India.
 
-**This repository currently contains Priority #1 only** (Auth / Registration / Onboarding) — backend and a first frontend. See [`backend/README.md`](backend/README.md) for exactly what is implemented, what is explicitly out of scope, and how to run it. Priority #2–#18 (members/KYC, credit products, accounting, collections, platform admin, etc.) have frozen specification documents but no code yet — see below.
+## Current authorised implementation scope
+
+Phase-1 coding is authorised for exactly:
+
+- **Priority #1 v1.2 — Auth / Registration / Tenant Onboarding**
+- **Priority #13 v1.3 — Admin / Settings / RBAC**
+- **Priority #18 v1.2 — Platform Super Admin / Subscription**
+
+No other Priority is represented here as an implemented business module.
+
+## Phase-1 status
+
+| Area | Current status |
+|---|---|
+| Shared multi-tenant/security foundation | Implemented |
+| Priority #1 backend | Implemented within the frozen Phase-1 boundary |
+| Priority #1 frontend | Implemented working flows |
+| Priority #13 backend | 18 active Settings/RBAC screens represented by their frozen ownership/governance boundaries |
+| Priority #13 frontend | Operational tenant Settings console for all 18 active screen IDs |
+| Priority #18 backend | Platform control-plane implementation for SA-01…SA-10 boundaries |
+| Priority #18 frontend | Operational Platform Admin console for SA-01…SA-10 |
+| SA-09 CBBO/Agency Hierarchy | **Disabled / Coming Soon / Future Phase / Not in MVP** |
+| Warehouse active inventory dimension | **Zero / retired** |
+| Professional Verification | **0/5 VERIFIED** |
+| Production deployment | **Not authorised** |
+| Production Ready | **No** |
+
+## Verification
+
+GitHub Actions verifies the current Phase-1 source against real PostgreSQL + Redis test services.
+
+Latest verified branch gate before merge:
+
+- Backend build: PASS
+- Backend lint: PASS
+- Database migrations: PASS
+- Backend/integration tests: **93/93 PASS**
+- Frontend build: PASS
+- Frontend lint: PASS
+- Generic tenant RLS runs under a non-superuser, non-BYPASSRLS application role.
 
 ## Repository layout
 
-```
-backend/   NestJS (TypeScript) API — Priority #1 (Auth/Registration/Onboarding) implemented and tested
-frontend/  React + TypeScript (Vite) — Priority #1 screens: FPO self-registration wizard, OTP,
-           document upload, FPO login, Platform Super Admin login (password + TOTP), password
-           setup, onboarding progress / Go-Live. Calls the backend's real, tested API routes
-           directly (src/api/*.ts) — no mocked or placeholder business logic.
-docs/      (empty here — specification documents are tracked in the project workspace, not this repo)
+```text
+backend/   NestJS + TypeScript + PostgreSQL + Redis
+frontend/  React + TypeScript + Vite
+.github/   CI workflow for build/lint/migration/test verification
 ```
 
-## Status (as of this commit)
+### Backend modules in the authorised Phase-1
 
-| Area | Status |
-|---|---|
-| Priority #1 — Auth/Registration/Onboarding (backend) | Implemented, security/spec-conformance corrected, 71/71 tests passing (real PostgreSQL + Redis) |
-| Priority #1 — Frontend | First working version: registration wizard, OTP, document upload, FPO login, Platform Admin login + TOTP, password setup, onboarding/Go-Live screens. Builds clean, 0 lint errors, draft-creation flow verified live against the real backend. **Not yet styled/reviewed for production UX, and SMTP must be configured for OTP email to actually send.** |
-| Priority #13 — Admin/Settings/RBAC | **In progress.** Built so far: **SET-08** Roles & Permissions, **SET-03** Branch Master, **SET-07** Users (Create/Edit/Deactivate/Reactivate, all Maker-Checker-governed — approving a Create genuinely inserts a `user_account` row with role + branch access, never on Submit). **Known, disclosed gap in SET-07:** an approved user-Create does not yet email a working setup link — Priority #1's existing setup-token flow is explicitly scoped to the Initial FPO Admin only, so a separate staff setup-link mechanism is still to be built, not quietly skipped. 15 of 18 screens remain: SET-01,02,05,06,09,11,12,13,14,15,16,17,20,21,22. |
-| Priority #2–#12, #14–#18 (members, credit, loans, accounting, collections, reports, platform admin, etc.) | **Specifications frozen; code not started** |
-| Production-ready / deployable as a complete product | **No** — only one of eighteen planned modules exists |
-
-### Running the frontend locally
+```text
+backend/src/modules/priority1-auth-registration/
+backend/src/modules/priority13-admin-settings/
+backend/src/modules/priority18-platform-admin/
 ```
+
+### Frontend Phase-1 surfaces
+
+- FPO self-registration / OTP / document upload
+- FPO login
+- initial password setup
+- 16-step onboarding + Go-Live validation
+- Priority #13 tenant Settings console
+- Platform Super Admin login + TOTP
+- Priority #18 Platform Control Plane console
+
+## Important ownership boundaries
+
+- Tenant/FPO registration and application-status truth remains Priority #1-owned.
+- Branch/RBAC/tenant settings truth remains Priority #13-owned.
+- Platform control-plane truth remains Priority #18-owned.
+- Priority #15 remains the sole authoritative audit-event truth; SA-08 is a presentation/control consumer boundary only.
+- SA-09 contains no live CBBO/Agency hierarchy model or mutation API.
+- Generic Platform Admin identity never bypasses tenant RLS to read arbitrary tenant business tables.
+- Warehouse is not an active inventory/location dimension; Branch remains the active location dimension.
+
+## Honest remaining dependencies
+
+Phase-1 code must not fabricate business truth owned by modules that are outside the authorised Phase-1 implementation scope.
+
+Accordingly, SYS-04 Go-Live may still correctly block when authoritative downstream prerequisites are unavailable, including Loan/Input-Credit Product truth and Chart-of-Accounts truth owned by later modules. Priority #13-backed Branch and approved Rounding configuration are already wired into the gate.
+
+The exact production FPO-Code format/algorithm is also not invented here. The frozen source requires a platform-generated, unique, immutable code from the Master-SRS Numbering Engine, but the available frozen sources do not define a concrete format/algorithm. The production adapter therefore blocks rather than manufacturing a canonical format.
+
+Production integrations also require environment/deployment configuration such as real SMTP credentials, private object storage/malware scanning provider, production secrets and infrastructure. These are not reasons to create fake business state.
+
+## Local run
+
+Backend:
+
+```bash
+cd backend
+cp .env.example .env
+npm ci --legacy-peer-deps
+npm run migration:run
+npm run start:dev
+```
+
+Frontend:
+
+```bash
 cd frontend
-npm install
-cp .env.example .env   # points at the backend; edit VITE_API_BASE_URL if needed
+cp .env.example .env
+npm ci
 npm run dev
 ```
-Requires the backend (see `backend/README.md`) running and reachable at the configured API URL.
 
-Full detail: `backend/README.md` and `backend/FPO_SaaS_PHASE_2.2_PHASE1_IMPLEMENTATION_PROGRESS_v1.0.md`-equivalent progress record (kept in the project workspace).
-
-## Working method (unchanged going forward)
-
-This project is built phase-by-phase with explicit approval at each gate — architecture/specification first, then module-by-module implementation, each stage tested before the next begins, with financial/legal rules never invented and always made configurable or referred back to the Owner. Nothing in Priority #2–#18 is coded in this repository yet; their frozen specifications exist separately and implementation proceeds module by module as authorized.
+For implementation detail, see [backend/README.md](backend/README.md) and [PHASE1_IMPLEMENTATION_STATUS.md](PHASE1_IMPLEMENTATION_STATUS.md).

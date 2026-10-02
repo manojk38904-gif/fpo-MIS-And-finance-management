@@ -96,7 +96,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     const tenant = await this.dataSource.getRepository(FpoRegistrationEntity).findOne({ where: { id: payload.tenantId } });
-    if (!tenant || tenant.status !== FpoRegistrationStatus.ACTIVE) {
+    const subscriptionRows = await this.dataSource.query(
+      'SELECT "state" FROM "tenant_subscription" WHERE "tenantId" = $1 ORDER BY "createdAt" DESC LIMIT 1',
+      [payload.tenantId],
+    );
+    const subscriptionState = (subscriptionRows as Array<{ state?: string }>)[0]?.state;
+    if (!tenant || tenant.status !== FpoRegistrationStatus.ACTIVE || subscriptionState === 'SUSPENDED') {
       throw new UnauthorizedException(SESSION_INVALID);
     }
 

@@ -477,4 +477,156 @@ describe('Priority #13 — SET-08 Roles & Permissions (real PostgreSQL + Redis i
       expect(afterReactivate.status).toBe('ACTIVE');
     });
   });
+
+  describe('Remaining Priority #13 settings surfaces', () => {
+    it('SET-14 uses Maker-Checker and keeps the rounding rule UNSET until approval', async () => {
+      const makerToken = await tokenFor(MAKER);
+      const checkerToken = await tokenFor(CHECKER);
+
+      const draft = await request(app.getHttpServer())
+        .post('/api/v1/settings/governed/SET-14')
+        .set('Authorization', 'Bearer ' + makerToken)
+        .send({
+          configKey: 'DEFAULT',
+          payload: {
+            dayCountConvention: 'ACTUAL_365',
+            roundingMethod: 'NEAREST',
+            decimalPlaces: 2,
+            gracePeriodDays: 0,
+          },
+        });
+      expect(draft.status).toBe(201);
+
+      const before = await request(app.getHttpServer())
+        .get('/api/v1/settings/governed/SET-14')
+        .set('Authorization', 'Bearer ' + makerToken);
+      expect(before.body.find((x: { id: string }) => x.id === draft.body.id).status).toBe('DRAFT');
+
+      expect(
+        (await request(app.getHttpServer())
+          .post('/api/v1/settings/governed/submissions/' + draft.body.id + '/submit')
+          .set('Authorization', 'Bearer ' + makerToken)
+          .send({})).status,
+      ).toBe(201);
+
+      expect(
+        (await request(app.getHttpServer())
+          .post('/api/v1/settings/governed/submissions/' + draft.body.id + '/approve')
+          .set('Authorization', 'Bearer ' + makerToken)
+          .send({})).status,
+      ).toBe(403);
+
+      expect(
+        (await request(app.getHttpServer())
+          .post('/api/v1/settings/governed/submissions/' + draft.body.id + '/approve')
+          .set('Authorization', 'Bearer ' + checkerToken)
+          .send({})).status,
+      ).toBe(201);
+
+      const after = await request(app.getHttpServer())
+        .get('/api/v1/settings/governed/SET-14')
+        .set('Authorization', 'Bearer ' + makerToken);
+      expect(after.body.find((x: { id: string }) => x.id === draft.body.id).status).toBe('ACTIVE');
+    });
+
+    it('SET-12 refuses an incomplete numbering-mode configuration instead of inventing missing document types', async () => {
+      const token = await tokenFor(MAKER);
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/settings/governed/SET-12')
+        .set('Authorization', 'Bearer ' + token)
+        .send({
+          configKey: 'DEFAULT',
+          payload: { modes: { MEMBER_NO: 'CENTRALISED' } },
+        });
+      expect(res.status).toBe(400);
+      expect(String(res.body.message)).toMatch(/9 fixed numbering document types/i);
+    });
+
+    it('SET-13 enforces exactly 100 total credit-weight points', async () => {
+      const token = await tokenFor(MAKER);
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/settings/governed/SET-13')
+        .set('Authorization', 'Bearer ' + token)
+        .send({
+          configKey: 'DEFAULT',
+          payload: {
+            weights: {
+              membershipHistory: 10,
+              fpoBusinessHistory: 10,
+              landholding: 10,
+              cropIncomeCapacity: 10,
+              bankingCapacity: 10,
+              previousRepayment: 10,
+              fieldVerification: 10,
+              existingLiabilities: 10,
+            },
+            exposureMode: 'SEPARATE',
+            scoreBands: [{ min: 0, max: 100 }],
+          },
+        });
+      expect(res.status).toBe(400);
+      expect(String(res.body.message)).toMatch(/exactly 100/i);
+    });
+
+    it('SET-21 records professional-verification status evidence without converting it into a hidden legal verdict', async () => {
+      const makerToken = await tokenFor(MAKER);
+      const checkerToken = await tokenFor(CHECKER);
+
+      const draft = await request(app.getHttpServer())
+        .post('/api/v1/settings/governed/SET-21')
+        .set('Authorization', 'Bearer ' + makerToken)
+        .send({
+          configKey: 'POINT-01',
+          payload: {
+            evidenceNote: 'Evidence received and recorded for the named professional point.',
+            professionalSourceName: 'Qualified Professional',
+            verificationDate: '2026-09-30',
+          },
+        });
+      expect(draft.status).toBe(201);
+      await request(app.getHttpServer())
+        .post('/api/v1/settings/governed/submissions/' + draft.body.id + '/submit')
+        .set('Authorization', 'Bearer ' + makerToken)
+        .send({});
+      await request(app.getHttpServer())
+        .post('/api/v1/settings/governed/submissions/' + draft.body.id + '/approve')
+        .set('Authorization', 'Bearer ' + checkerToken)
+        .send({});
+
+      const register = await request(app.getHttpServer())
+        .get('/api/v1/settings/regulatory-verification')
+        .set('Authorization', 'Bearer ' + makerToken);
+      expect(register.status).toBe(200);
+      expect(register.body).toHaveLength(16);
+      expect(register.body[0].status).toBe('ACTIVE');
+      expect(register.body[0].sourceReference).toBe('Master-SRS §33 Point 1');
+    });
+
+    it('SET-22 has no pre-populated QR log-retention default and saves only an explicit tenant value', async () => {
+      const token = await tokenFor(MAKER);
+      const before = await request(app.getHttpServer())
+        .get('/api/v1/settings/backup-export/public-qr-retention')
+        .set('Authorization', 'Bearer ' + token);
+      expect(before.status).toBe(200);
+      expect(before.body).toEqual({});
+
+      const saved = await request(app.getHttpServer())
+        .put('/api/v1/settings/backup-export/public-qr-retention')
+        .set('Authorization', 'Bearer ' + token)
+        .send({ retentionPeriod: 'OWNER_CONFIGURED_PERIOD' });
+      expect(saved.status).toBe(200);
+      expect(saved.body.payload.retentionPeriod).toBe('OWNER_CONFIGURED_PERIOD');
+    });
+
+    it('SET-15 exposes only the accounting ownership boundary and never a duplicate accounting truth', async () => {
+      const token = await tokenFor(MAKER);
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/settings/accounting')
+        .set('Authorization', 'Bearer ' + token);
+      expect(res.status).toBe(200);
+      expect(res.body.owningPriority).toBe('Priority #10 Accounting');
+      expect(res.body.mutationAvailable).toBe(false);
+    });
+  });
+
 });

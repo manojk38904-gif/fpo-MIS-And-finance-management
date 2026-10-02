@@ -440,6 +440,17 @@ describe('Priority #13 — SET-08 Roles & Permissions (real PostgreSQL + Redis i
       );
       expect(afterEdit.roleId).toBe(roleId2);
 
+      const liveSessionBeforeDeactivation = await sessionStore.createSession({
+        subjectType: 'TENANT_USER',
+        userId: createdUser.id,
+        tenantId: TENANT_A,
+        mfaCompleted: true,
+        ttlSeconds: 900,
+        ipAddress: null,
+        userAgent: 'priority13-deactivation-test',
+      });
+      expect(await sessionStore.getSession(liveSessionBeforeDeactivation.sessionId)).not.toBeNull();
+
       const deactivateRes = await request(app.getHttpServer())
         .post('/api/v1/settings/users/requests/deactivate')
         .set('Authorization', `Bearer ${makerToken}`)
@@ -451,6 +462,7 @@ describe('Priority #13 — SET-08 Roles & Permissions (real PostgreSQL + Redis i
         manager.getRepository(UserAccountEntity).findOneOrFail({ where: { id: createdUser.id } }),
       );
       expect(afterDeactivate.status).toBe('SUSPENDED');
+      expect(await sessionStore.getSession(liveSessionBeforeDeactivation.sessionId)).toBeNull();
 
       const reactivateRes = await request(app.getHttpServer())
         .post('/api/v1/settings/users/requests/reactivate')

@@ -21,6 +21,11 @@ export enum PlatformAdminStatus {
   LOCKED = 'LOCKED',
 }
 
+export enum PlatformAdminRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  SUPPORT_ADMIN = 'SUPPORT_ADMIN',
+}
+
 @Entity('platform_admin_account')
 export class PlatformAdminAccountEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -42,6 +47,9 @@ export class PlatformAdminAccountEntity {
   @Column({ type: 'boolean', default: false })
   totpEnabled!: boolean;
 
+  @Column({ type: 'enum', enum: PlatformAdminRole, default: PlatformAdminRole.SUPER_ADMIN })
+  role!: PlatformAdminRole;
+
   @Column({ type: 'enum', enum: PlatformAdminStatus, default: PlatformAdminStatus.ACTIVE })
   status!: PlatformAdminStatus;
 
@@ -50,6 +58,9 @@ export class PlatformAdminAccountEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   lockedUntil!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastLoginAt!: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;

@@ -1,90 +1,188 @@
-# FPO SaaS — Backend (Phase-1)
+# FPO SaaS Backend — Phase-1
 
-**Authorization:** `FPO_SaaS_PHASE_2.2_IMPLEMENTATION_START_AUTHORIZATION_PHASE1_v1.0.md` (OWNER APPROVED / FROZEN / CURRENT AUTHORITATIVE — unmodified by this pass).
-**Authorized scope:** Priority #1 v1.2, Priority #13 v1.3, Priority #18 v1.2 ONLY.
-**Implementation progress record:** `FPO_SaaS_PHASE_2.2_PHASE1_IMPLEMENTATION_PROGRESS_v1.0.md` (separate from the frozen authorization document, per Owner instruction — updated by this pass).
-**Current pass:** PHASE 2.2 — PRIORITY #1 v1.2 SECURITY / SPEC-CONFORMANCE CORRECTION PASS (23-item list). Priority #1 is **not yet closed** — this pass corrected the prior implementation's security/architecture gaps (Redis sessions, atomic concurrency handling, OTP subject-binding, document-upload wiring, password-policy configurability, and more); it did not start Priority #13/#18 business implementation. See the progress record's §8 for the full item-by-item status.
+## Governance
 
-## What exists so far
+**Authorised coding scope only:**
 
-### Shared Technical Foundation (prior pass, unchanged in architecture this pass)
+- Priority #1 v1.2 — Auth / Registration / Tenant Onboarding
+- Priority #13 v1.3 — Admin / Settings / RBAC
+- Priority #18 v1.2 — Platform Super Admin / Subscription
 
-- NestJS (TypeScript) app skeleton, ESM, built on the frozen tech stack (Master SRS §4.1: Node.js + NestJS, PostgreSQL 15+, React, Redis/BullMQ).
-- PostgreSQL connection via TypeORM (`src/database/database.module.ts`), `synchronize: false` — schema changes only via explicit migrations.
-- **Database-enforced multi-tenancy**: `tenant_id` + Row-Level Security, per the frozen shared-DB strategy.
-  - **Generic RLS: STRICT TENANT-ONLY.** No generic Platform Super Admin bypass.
-  - `src/database/tenant-rls.util.ts` — `enableTenantRls()` migration helper, deny-by-default.
-  - **Tenant-context flow**: verified `OptionalJwtAuthGuard` → `TenantContextInterceptor` → `TenantContextService` (AsyncLocalStorage) → `TenantAwareTransactionRunner` (per-request path).
-  - `src/common/auth/` — `JwtStrategy`/`JwtAuthGuard`/`OptionalJwtAuthGuard`.
-  - `src/common/security/password-hasher.ts` — Argon2id wrapper, for passwords only (looked up by username, one candidate verified).
-  - `src/common/security/secret-token-hasher.ts` — **new this pass** — deterministic HMAC-SHA256 for secrets that must be found BY their hash (OTP codes, setup-link tokens, refresh tokens), since Argon2id's random salting cannot support that lookup pattern.
-  - `src/common/tenant-context/known-tenant-transaction-runner.ts` — **new this pass** — a sibling to `TenantAwareTransactionRunner` for pre-authentication system operations (login's own `user_account` lookup, tenant activation, password reset) that have already independently resolved a legitimate `tenantId` but have no guard-verified request context yet to read one from.
-  - `src/common/audit/` — **new this pass** — `AuditEventPort`/`AUDIT_EVENT_PORT` + `LocalAuditEventAdapter`, the minimal, non-fabricated audit boundary Priority #1 writes meaningful events through (Priority #15 remains the sole authoritative audit truth; this is a stand-in local sink, not a competing one).
-  - `src/common/session/` — **new, correction pass** — `SessionStorePort`/`RedisSessionStoreAdapter`, the sole authoritative truth for whether an issued access token's session is still active (Master SRS §26, frozen). `JwtStrategy` checks it, plus live tenant/user/admin status, on every request.
-  - `src/common/delivery/` — **new, correction pass** — `EmailDeliveryPort` (`InMemoryEmailDeliveryAdapter` in tests, a generic SMTP adapter in production), the single boundary all OTP/activation/setup-link email goes through — never a raw `console.log`.
-  - `src/common/storage/` — **new, correction pass** — `FileStoragePort`/`MalwareScanPort`, the document-upload boundary `RegistrationController` is wired to.
-  - `src/common/security/password-policy.port.ts` — **new, correction pass** — `PasswordPolicyPort`, the single configurable source of password-shape rules (replacing a prior hard-coded DTO rule).
+Production deployment is not authorised. Professional Verification remains 0/5 VERIFIED.
 
-### Priority #1 v1.2 — AUTH / REGISTRATION / ONBOARDING (this pass — newly implemented)
+## Shared foundation
 
-All six frozen SYS screens, under `src/modules/priority1-auth-registration/`:
+Implemented:
 
-| Screen | What's implemented |
-|---|---|
-| SYS-02 (Registration) | Opaque resume-token-gated draft create/update, real document upload (type/size-enforced, malware-scan hook), Step-5 submit with mandatory-field + mandatory-document completeness check + DB-level race-safe duplicate PAN/CIN handling (CA-2) |
-| SYS-03 (OTP) | Shared email-OTP component — TTL/attempt-limit/resend-cooldown all configurable, deterministic-HMAC storage, subject-bound (never cross-registration-replayable), atomic single-consumption, no raw OTP ever logged or persisted |
-| SYS-01-A (Tenant/Staff/Member Login) | FPO-Code + identifier + password, generic non-enumerating error for unknown FPO-Code/user/password, specific locked/suspended messages, account lockout (immediately revokes live sessions), Redis-backed session issuance + atomic refresh-token rotation/reuse-detection |
-| SYS-05 (Initial FPO-Admin Setup) | CA-1 single-use, expiring, secure setup link; no plaintext password ever emailed or logged; no second compulsory password-change loop |
-| SYS-01-B (Platform Super Admin Login) | Separate identity/table hierarchy from tenant users; mandatory two-step password + TOTP; MFA-pending ticket signed with a distinct secret so it can never be replayed as a general bearer token |
-| SYS-06 (Forgot/Reset Password) | Byte-identical Step-1 response whether or not the account exists; Step-2 fails with the same generic error for both "no such request" and "wrong OTP" |
-| SYS-04 (16-Step Onboarding Wizard + Go-Live Gate) | All 16 frozen steps, unmerged/unreordered; per-tenant completion/skip tracking; a server-side Go-Live gate expressed as 5 injectable prerequisite ports |
+- NestJS + TypeScript
+- PostgreSQL with explicit migrations and `synchronize: false`
+- strict tenant-scoped Row-Level Security
+- non-superuser / `NOBYPASSRLS` application DB role in CI
+- verified-authentication → tenant-context → AsyncLocalStorage → tenant-aware transaction flow
+- Redis-backed authoritative session/revocation state
+- Argon2id password hashing
+- HMAC lookup hashes for OTP/setup/refresh secrets
+- configurable password policy
+- rate limiting / CORS / environment validation
+- provider ports for email delivery, private file storage and malware scanning
+- audit-event adapter boundary without redefining Priority #15 as a second truth
 
-**SYS-04 Go-Live Gate — current, honest state:** Priority #4/#5/#10/#13 (Loan/Input-Credit Products, Chart of Accounts, Branches, Rounding Rule, feature-enablement) are not this task's implementation target and do not exist yet. The gate's 5 checks are bound to `NotImplemented*Adapter`s that correctly report "not yet configured" for 4 of the 5 checks (so Go-Live correctly **blocks**, with no demo/testing bypass), and a deliberate, documented vacuous PASS for the 5th (CA-3 regulatory verification), since it is feature-conditional and no enabled-feature truth exists yet to apply it to. Swapping in the real Priority #4/#5/#10/#13-backed adapters later requires no change to any caller.
+Generic Platform Admin identity does **not** bypass generic tenant RLS.
 
-### Correction pass (this pass) — what changed and why
+## Priority #1 v1.2
 
-Redis is now the **sole authoritative** active-session/revocation truth (Master SRS §26, frozen — not an Owner-optional future choice). `SessionStorePort`/`RedisSessionStoreAdapter` backs every login; `JwtStrategy` re-checks the Redis session plus live tenant/user/admin DB state on **every** authenticated request — logout, lockout, suspension and password-reset all take effect immediately, on the token's very next use, not only once its own short JWT expiry elapses. The DB refresh-token tables (`user_refresh_token` / `platform_admin_refresh_token`) are demoted to pure rotation/reuse-detection bookkeeping (a `sessionId` column links each row to its Redis session) — they are explicitly not a second "is this session active" truth.
+Implemented backend flows:
 
-Other correction-pass fixes: OTP verification, setup-token consumption, and refresh-token rotation are all now atomic (conditional-UPDATE compare-and-set), each with a parallel-request test proving exactly one caller ever wins; duplicate PAN/CIN submission is additionally backstopped by a DB-level partial unique index (scoped to post-submission statuses only) with its own parallel-submission test; OTPs are bound to `subjectId + purpose + identifier` so one registration's OTP can never verify another's, even sharing an email; resume access to an in-progress registration now requires an opaque, expiring, re-issuable resume token — a bare registration id is never sufficient; raw OTP values are never logged anywhere, including in tests (delivery goes through `EmailDeliveryPort`, with an in-memory test adapter); password policy is enforced through one configurable `PasswordPolicyPort`, not a second hard-coded DTO rule; `TenantActivationService` now only ever activates an application already in status `APPROVED` (SA-01's own decision, not this hook's); document upload is now wired end-to-end (`RegistrationController` → `FileInterceptor` → `RegistrationService.attachDocumentByResumeToken`) with real type/size enforcement and a malware-scan hook.
+- SYS-01 tenant login and separate Platform Admin password + TOTP login
+- SYS-02 registration, resume-token access, document upload
+- SYS-03 OTP verification
+- SYS-04 16-step onboarding + server-side Go-Live gate
+- SYS-05 secure first-password setup
+- SYS-06 password reset
+- Redis sessions, refresh rotation/reuse handling and immediate revocation
+- non-enumerating registration/login/reset behaviour
+- atomic one-time-token/OTP operations
+- race-safe duplicate PAN/CIN submission protection
+- approved-only tenant activation hook
 
-**Explicit scope choices still made and disclosed, not silently skipped:**
-- Actual OTP/email delivery (SMTP/SES/etc.) uses a generic `EmailDeliveryPort`; the production binding is a plain SMTP adapter (`nodemailer`) — a vendor-specific provider (SES, SendGrid, etc.) has not been selected and is not implemented.
-- FPO-Code generation has no real algorithm yet. The production binding (`NotImplementedFpoCodeGeneratorAdapter`) deliberately **blocks** tenant activation with a clear error rather than fabricating a code — the Master SRS's actual Numbering-Engine algorithm is not specified in Priority #1 v1.2's own text and does not exist in this codebase. A test-only adapter (`TestFpoCodeGeneratorAdapter`) exists solely for integration tests to exercise the rest of the activation flow.
-- Document storage is a configurable local directory (`LocalFileStorageAdapter`), not a cloud object store — an S3/Spaces-compatible provider has not been selected; swapping one in later only touches this one adapter, never any caller or API contract. The malware-scan hook (`StubMalwareScanAdapter`) always reports clean and is explicitly not a real scanner — a real scanning service has not been selected either.
-- `TenantActivationService` (the SA-01 "right after approval" hook) is an internal service method only, not a public HTTP endpoint — exposing it as one would itself constitute Priority #18's SA-01 approval screen, out of this task's scope.
-- Steps 2 (Logo & Branding), 5 (Bank Accounts), 11 (Staff Users), and 16 (Authorised Signatures) of the 16-step onboarding wizard are not conclusively classified mandatory-vs-skippable by the frozen v1.2 text's own enumeration — see `ONBOARDING_STEPS_PENDING_OWNER_CLASSIFICATION` and the progress record's Open Owner Decisions. The current runtime default (non-skippable) is an interim safety choice, not a claim about what the frozen text requires.
+### SYS-04 step classification
 
-### What does NOT exist yet (explicitly out of this pass)
+Resolved by Owner completion instruction:
 
-- Priority #13 (SET-*) and Priority #18 (SA-*) screens/entities/controllers — including the public SA-01 approval endpoint, full RBAC/staff-user provisioning beyond the one `isInitialFpoAdmin` distinction, and Loan/Input-Credit/Chart-of-Accounts/Branch/Rounding-Rule configuration.
-- Priority #15's real audit system (only the minimal local adapter boundary exists).
-- Real file/object storage and email/SMS delivery providers.
-- Frontend.
+- mandatory basic onboarding: 1, 3, 4, 6, 7, 8, 9, 10, 12
+- optional: 2, 11, 13, 14, 15
+- conditional downstream requirement but not a basic Go-Live blocker: 5 (Bank Accounts), 16 (Authorised Signatures)
 
-## Running locally
+Conditional requirements must be enforced by the operation that actually needs them; no fake bank/signature data is generated.
+
+### Go-Live dependency boundary
+
+Five frozen prerequisite checks remain server-side.
+
+Already backed by Phase-1 authoritative truth:
+
+- Branch existence → Priority #13 SET-03
+- approved rounding rule → Priority #13 SET-14
+
+Still correctly blocking where the authoritative owning module is outside Phase-1:
+
+- active Loan/Input-Credit Product / required approval configuration
+- Chart of Accounts + combined accounting prerequisite
+
+Regulatory applicability remains feature-scoped; SET-21 does not itself unlock a regulated feature.
+
+### FPO-Code boundary
+
+The frozen source requires a platform-generated, unique, immutable FPO-Code from the Master-SRS Numbering Engine / tenant-level sequence after SA-01 approval. The available frozen source does not define a concrete production format/algorithm. The production adapter therefore blocks rather than inventing one.
+
+## Priority #13 v1.3
+
+Exactly 18 active screens are represented:
+
+- SET-01 FPO Profile
+- SET-02 Logo / Branding
+- SET-03 Branch Master
+- SET-05 Bank Accounts
+- SET-06 Financial Year
+- SET-07 Users
+- SET-08 Roles & Permissions
+- SET-09 Branch Access
+- SET-11 Approval Matrix
+- SET-12 Numbering Rules
+- SET-13 Credit Settings
+- SET-14 Interest Settings
+- SET-15 Accounting Settings ownership/navigation boundary
+- SET-16 Purchase Workflow Settings
+- SET-17 Inventory Settings
+- SET-20 Authorised Signatures
+- SET-21 Regulatory Verification Status
+- SET-22 Backup / Data Export
+
+SET-04 and SET-10 remain retired. SET-18/SET-19 are Priority #12-owned, not active Priority #13 screens.
+
+Implemented governance includes:
+
+- maker ≠ checker where frozen
+- Draft / Pending / Active / Rejected / Sent-Back / Superseded lifecycle
+- version/history preservation
+- concurrency guards
+- Branch as the active location dimension
+- role and branch-access truth
+- user create/edit/deactivate/reactivate
+- immediate Redis-session invalidation on approved deactivation
+- Financial Year overlap validation
+- approved Rounding rule configuration
+- Regulatory Verification tracking
+- tenant data-export requests / retention configuration
+
+SET-15 intentionally does not duplicate Priority #10 accounting truth.
+
+## Priority #18 v1.2
+
+Implemented Platform Control Plane boundaries:
+
+- SA-01 FPO/Tenant Applications
+- SA-02 Tenant Management
+- SA-03 Subscription Plans
+- SA-04 Tenant Subscription
+- SA-05 Platform Usage
+- SA-06 Platform Health
+- SA-07 consent/time-bound Support Access
+- SA-08 Platform Audit presentation boundary
+- SA-09 CBBO/Agency Hierarchy disabled/Coming-Soon state
+- SA-10 Security Events boundary
+
+Important boundaries:
+
+- SA-01 acts on Priority #1-owned registration/application workflow.
+- SA-08 does not create or expose a competing audit truth; Priority #15 remains authoritative.
+- SA-09 contains no hierarchy model, operational mutation API or Agency-to-FPO mapping.
+- Platform views use explicit platform-safe aggregate/metadata paths rather than a generic tenant-table bypass.
+- tenant subscription suspension revokes tenant sessions.
+
+## Verification
+
+Current Phase-1 CI gate uses PostgreSQL 16 + Redis 7 and runs:
 
 ```bash
-cp .env.example .env   # then fill in real values (JWT secrets must be 32+ chars)
-npm ci --legacy-peer-deps   # --legacy-peer-deps works around an npm/arborist bug with this Nest CLI's default vitest peer deps
+npm ci --legacy-peer-deps
 npm run build
-npm run migration:run   # requires a reachable PostgreSQL at DATABASE_URL — creates the Priority #1 schema
-npm run test            # requires a reachable PostgreSQL at DATABASE_URL AND a reachable Redis at REDIS_URL (sessions)
-npm run start
+npm run lint
+npm run migration:run
+npm run test -- --no-file-parallelism
 ```
 
-Migration CLI commands: `npm run migration:run`, `npm run migration:revert`, `npm run migration:show` (all via `typeorm-ts-node-esm`, configured in `src/database/data-source.ts` — used only by the CLI, never imported by the running app).
+Latest verified branch result before documentation update:
 
-## No-second-truth boundaries encoded in this codebase
+- 7 explicit migrations PASS
+- 6 test files PASS
+- **93/93 tests PASS**
+- Priority #1 integration: 42 PASS
+- Priority #13 integration: 16 PASS
+- Priority #18 integration: 6 PASS
+- tenant-context / RLS / environment tests: PASS
 
-| Truth | Owner | Where enforced here |
-|---|---|---|
-| Tenant/FPO identity, credentials | Priority #1 | `src/modules/priority1-auth-registration/services/auth.service.ts` + `platform-admin-auth.service.ts` |
-| Active-session / revocation truth | Redis (via `SessionStorePort`) | `src/common/session/redis-session-store.adapter.ts` — the DB refresh-token tables are rotation/reuse bookkeeping only, never a second truth |
-| Branch / RBAC / Settings / Loan & Input-Credit Products / Chart of Accounts / Rounding Rule | Priority #13 | Not yet implemented — Go-Live gate ports in `go-live-prerequisite.ports.ts` are the integration boundary |
-| SA-01 approval decision | Priority #18 | Not yet implemented — `TenantActivationService` is the narrow, already-approved-registration-only hook it will call |
-| Audit-event truth | Priority #15 (outside Phase-1) | `AuditEventPort` — local adapter only, not a competing truth |
-| Row-level tenant isolation | Database (RLS), strict tenant-only | `tenant-rls.util.ts`, applied to `user_account` and `onboarding_step_progress` (the two genuinely tenant-scoped, per-request-path tables in this pass) |
+Frontend build and lint also PASS in the same workflow.
 
-**Tables deliberately NOT RLS-protected, and why:** `fpo_registration` / `fpo_registration_document` (pre-tenant — the tenant does not exist yet), `otp_verification` / `setup_token` / `user_refresh_token` / `platform_admin_refresh_token` (looked up BY an unguessable secret's hash — a lookup that must work before any tenant context can exist, protected by the secret's own entropy instead), `platform_admin_account` (genuinely platform-level, a separate identity hierarchy from tenant users, never given a tenant_id at all). Each entity's own doc-comment explains its specific reasoning.
+## External deployment dependencies
 
-Warehouse active inventory dimension: **ZERO / RETIRED** — no `warehouse_id` or Warehouse construct exists anywhere in this codebase (verified: zero occurrences of the word "warehouse" anywhere in `src/`, outside of this pass's own regression test naming the concept it is checking for).
+The code intentionally does not commit real secrets or invent vendor choices.
+
+A real deployed environment still needs:
+
+- PostgreSQL / Redis
+- strong JWT secrets
+- explicit CORS origins
+- SMTP configuration
+- private object storage adapter/provider
+- production malware scanning provider
+- explicit platform recovery/support duration configuration
+- deployment host/domain/runtime configuration
+
+The current local storage / stub scanning implementations are adapter-level development implementations, not a claim that a production cloud provider has been selected.
+
+## Warehouse regression
+
+Active Warehouse inventory dimension = **ZERO / RETIRED**.
+
+Do not introduce `warehouse_id`, Warehouse Master, Warehouse RBAC, warehouse-wise stock or Warehouse-to-Warehouse transfer.

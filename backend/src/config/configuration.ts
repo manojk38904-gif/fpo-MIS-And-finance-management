@@ -159,6 +159,9 @@ export default (): AppConfig => ({
       .map((t) => t.trim())
       .filter(Boolean),
   },
+  fpoCode: {
+    format: process.env.FPO_CODE_FORMAT ?? '',
+  },
   platform: {
     recoveryRequestTtlHours: parseInt(process.env.PLATFORM_RECOVERY_REQUEST_TTL_HOURS ?? '0', 10),
     supportAccessMaxMinutes: parseInt(process.env.PLATFORM_SUPPORT_ACCESS_MAX_MINUTES ?? '0', 10),

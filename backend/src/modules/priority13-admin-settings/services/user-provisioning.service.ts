@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Inject, Inj
 import type { EntityManager } from 'typeorm';
 import { TenantAwareTransactionRunner } from '../../../common/tenant-context/tenant-aware-transaction-runner.js';
 import { AUDIT_EVENT_PORT, type AuditEventPort } from '../../../common/audit/audit-event.port.js';
+import { SESSION_STORE_PORT, type SessionStorePort } from '../../../common/session/session-store.port.js';
 import { UserAccountEntity, UserAccountStatus } from '../../priority1-auth-registration/entities/user-account.entity.js';
 import { UserProvisioningRequestEntity, UserRequestActionType } from '../entities/user-provisioning-request.entity.js';
 import { UserBranchAssignmentEntity } from '../entities/user-branch-assignment.entity.js';
@@ -27,6 +28,7 @@ export class UserProvisioningService {
   constructor(
     private readonly txRunner: TenantAwareTransactionRunner,
     @Inject(AUDIT_EVENT_PORT) private readonly audit: AuditEventPort,
+    @Inject(SESSION_STORE_PORT) private readonly sessionStore: SessionStorePort,
   ) {}
 
   async list(tenantId: string): Promise<UserProvisioningRequestEntity[]> {
@@ -151,8 +153,14 @@ export class UserProvisioningService {
     checkerId: string,
     toStatus: ApprovalStatus.ACTIVE | ApprovalStatus.REJECTED | ApprovalStatus.SENT_BACK,
     reason: string | null,
-  ): Promise<void> {
-    await this.txRunner.run(async (manager) => {
+  ): Promise<string | null> {
+    // SET-07 point-40: once a DEACTIVATE request is approved, every active
+    // session for the affected user must be invalidated immediately. The DB
+    // state change commits first; Redis session revocation is then applied as
+    // the authoritative active-session control. JwtStrategy also re-checks
+    // the current user status on every request, so a suspended account is
+    // denied even if a transport failure occurs while revoking Redis.
+    const revokeUserId = await this.txRunner.run(async (manager): Promise<string | null> => {
       const result = await manager
         .createQueryBuilder()
         .update(UserProvisioningRequestEntity)
@@ -175,9 +183,14 @@ export class UserProvisioningService {
 
       if (toStatus === ApprovalStatus.ACTIVE) {
         const req = await manager.getRepository(UserProvisioningRequestEntity).findOneOrFail({ where: { id: requestId, tenantId } });
-        await this.applyApprovedRequest(manager, tenantId, req);
+        return this.applyApprovedRequest(manager, tenantId, req);
       }
+      return null;
     });
+
+    if (revokeUserId) {
+      await this.sessionStore.revokeAllSessionsForSubject('TENANT_USER', revokeUserId);
+    }
 
     const eventType =
       toStatus === ApprovalStatus.ACTIVE ? 'settings.user.approved' : toStatus === ApprovalStatus.REJECTED ? 'settings.user.rejected' : 'settings.user.sent_back';
@@ -209,7 +222,7 @@ export class UserProvisioningService {
       if (req.branchAccessScope === 'SELECTED_BRANCH' && req.selectedBranchIds) {
         await branchAssignRepo.save(req.selectedBranchIds.map((branchId) => branchAssignRepo.create({ tenantId, userId: user.id, branchId })));
       }
-      return;
+      return null;
     }
 
     if (!req.supersedesUserId) throw new BadRequestException('Request is missing its target user.');
@@ -219,12 +232,12 @@ export class UserProvisioningService {
     if (req.actionType === UserRequestActionType.DEACTIVATE) {
       target.status = UserAccountStatus.SUSPENDED;
       await userRepo.save(target);
-      return;
+      return target.id;
     }
     if (req.actionType === UserRequestActionType.REACTIVATE) {
       target.status = UserAccountStatus.ACTIVE;
       await userRepo.save(target);
-      return;
+      return null;
     }
 
     // EDIT
@@ -238,6 +251,7 @@ export class UserProvisioningService {
       await branchAssignRepo.delete({ tenantId, userId: target.id });
       await branchAssignRepo.save(req.selectedBranchIds.map((branchId) => branchAssignRepo.create({ tenantId, userId: target.id, branchId })));
     }
+    return null;
   }
 
   async approve(tenantId: string, requestId: string, checkerId: string): Promise<void> {

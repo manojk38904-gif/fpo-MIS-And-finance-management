@@ -12,8 +12,7 @@ async function bootstrap() {
 
   // Explicit allowlist only — no wildcard, no unrestricted enableCors().
   // Empty ALLOWED_ORIGINS (the default) means NO cross-origin access at all,
-  // which fails safe rather than open. Add real frontend origins via env as
-  // they become known; never hard-code a production domain that isn't frozen.
+  // which fails safe rather than open. Add real tenant-portal/frontend origins as they are known; never hard-code a production domain that isn't frozen.
   const allowedOrigins = config.get<string[]>('cors.allowedOrigins') ?? [];
   app.enableCors({
     origin: allowedOrigins.length > 0 ? allowedOrigins : false,
@@ -31,6 +30,6 @@ async function bootstrap() {
   );
 
   const port = config.get<number>('port') ?? 3000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 }
 await bootstrap();

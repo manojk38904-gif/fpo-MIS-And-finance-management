@@ -28,6 +28,8 @@ import {
 import { TenantActivationService } from '../priority1-auth-registration/services/tenant-activation.service.js';
 import { TotpService } from '../priority1-auth-registration/services/totp.service.js';
 import { UserAccountEntity } from '../priority1-auth-registration/entities/user-account.entity.js';
+import { FpoRegistrationDocumentEntity } from '../priority1-auth-registration/entities/fpo-registration-document.entity.js';
+import { TenantRbacService } from '../priority13-admin-settings/services/tenant-rbac.service.js';
 import { SubscriptionPlanEntity, SubscriptionPlanStatus } from './entities/subscription-plan.entity.js';
 import { TenantSubscriptionEntity, TenantSubscriptionState } from './entities/tenant-subscription.entity.js';
 import { PlatformConfigurationEntity } from './entities/platform-configuration.entity.js';
@@ -53,6 +55,7 @@ export class PlatformAdminService {
     private readonly config: ConfigService,
     private readonly knownTenantTx: KnownTenantTransactionRunner,
     private readonly activation: TenantActivationService,
+    private readonly tenantRbac: TenantRbacService,
     private readonly passwordHasher: PasswordHasher,
     @Inject(PASSWORD_POLICY_PORT) private readonly passwordPolicy: PasswordPolicyPort,
     private readonly totp: TotpService,
@@ -111,6 +114,10 @@ export class PlatformAdminService {
   async getApplication(id: string) {
     const r = await this.dataSource.getRepository(FpoRegistrationEntity).findOne({ where: { id } });
     if (!r) throw new NotFoundException('Application not found.');
+    const documents = await this.dataSource.getRepository(FpoRegistrationDocumentEntity).find({
+      where: { registrationId: id },
+      order: { uploadedAt: 'ASC' },
+    });
     return {
       id: r.id,
       fpoName: r.fpoName,
@@ -129,6 +136,16 @@ export class PlatformAdminService {
       submittedAt: r.submittedAt,
       status: r.status,
       fpoCode: r.fpoCode,
+      uploadedDocuments: documents.map((d) => ({
+        id: d.id,
+        documentType: d.documentType,
+        originalFileName: d.originalFileName,
+        mimeType: d.mimeType,
+        sizeBytes: d.sizeBytes,
+        uploadedAt: d.uploadedAt,
+        previewAvailable: false,
+        note: 'Private file storage reference is intentionally not exposed as a public URL.',
+      })),
     };
   }
 
@@ -183,6 +200,7 @@ export class PlatformAdminService {
 
     try {
       const activated = await this.activation.activateApprovedRegistration(id);
+      await this.tenantRbac.ensureDefaultRoleForTenant(id);
       return { approved: true, activated: true, fpoCode: activated.fpoCode };
     } catch (err) {
       if (err instanceof ServiceUnavailableException) {
@@ -525,17 +543,36 @@ export class PlatformAdminService {
   }
 
   async platformUsage() {
-    const tenantCount = await this.dataSource.getRepository(FpoRegistrationEntity).count({ where: { status: FpoRegistrationStatus.ACTIVE } });
+    const tenants = await this.dataSource.getRepository(FpoRegistrationEntity).find({
+      where: { status: FpoRegistrationStatus.ACTIVE },
+      select: { id: true },
+    });
     const platformAdminCount = await this.dataSource.getRepository(PlatformAdminAccountEntity).count({ where: { status: PlatformAdminStatus.ACTIVE } });
+    let totalTenantUsers = 0;
+    for (const tenant of tenants) {
+      totalTenantUsers += await this.knownTenantTx.run(tenant.id, async (manager) => {
+        const rows = await manager.query('SELECT COUNT(*)::int AS count FROM "user_account" WHERE "tenant_id" = $1', [tenant.id]);
+        return Number((rows as Array<{ count: number | string }>)[0]?.count ?? 0);
+      });
+    }
+    const planUsage = await this.dataSource.getRepository(TenantSubscriptionEntity)
+      .createQueryBuilder('s')
+      .select('s."planVersionId"', 'planVersionId')
+      .addSelect('COUNT(DISTINCT s."tenantId")::int', 'tenantCount')
+      .where('s.id IN (SELECT DISTINCT ON ("tenantId") id FROM "tenant_subscription" ORDER BY "tenantId", "createdAt" DESC)')
+      .groupBy('s."planVersionId"')
+      .getRawMany();
+
     return {
       lastComputedAt: new Date().toISOString(),
       metrics: {
-        activeTenants: { available: true, value: tenantCount },
+        activeTenants: { available: true, value: tenants.length },
         activePlatformAdministrators: { available: true, value: platformAdminCount },
-        totalTenantUsers: { available: false, reason: 'Cross-tenant user-count aggregate cache is not implemented; RLS is not bypassed to fabricate this metric.' },
-        totalMembers: { available: false, reason: 'Priority #2 member source is not implemented.' },
-        storageUsed: { available: false, reason: 'Authoritative object-storage metering aggregate is not implemented.' },
-        notificationVolume: { available: false, reason: 'Priority #12 notification aggregate source is not implemented.' },
+        totalTenantUsers: { available: true, value: totalTenantUsers },
+        subscriptionUsageByPlan: { available: true, value: planUsage },
+        totalMembers: { available: false, reason: 'Priority #2 member source is outside the authorised Phase-1 implementation.' },
+        storageUsed: { available: false, reason: 'Authoritative object-storage metering aggregate is not available from the current storage port.' },
+        notificationVolume: { available: false, reason: 'Priority #12 notification aggregate source is outside the authorised Phase-1 implementation.' },
       },
     };
   }
@@ -564,6 +601,14 @@ export class PlatformAdminService {
       storage: { available: false, reason: 'Storage health adapter is not exposed by the current storage port.' },
       status: database === 'up' && cache === 'up' ? 'up' : 'degraded',
     };
+  }
+
+  async suspendTenant(actorAdminId: string, tenantId: string, reason: string) {
+    return this.changeSubscriptionState(actorAdminId, tenantId, TenantSubscriptionState.SUSPENDED, reason);
+  }
+
+  async reactivateTenant(actorAdminId: string, tenantId: string, reason: string) {
+    return this.changeSubscriptionState(actorAdminId, tenantId, TenantSubscriptionState.REACTIVATED, reason);
   }
 
   async createSupportAccess(actorAdminId: string, dto: SupportAccessRequestDto) {
@@ -656,6 +701,42 @@ export class PlatformAdminService {
     await repo.save(row);
     await this.audit.record({ eventType: 'platform.support_access.module_viewed', tenantId: row.tenantId, actorUserId: actorAdminId, subjectId: row.id, metadata: { modules: modules.join(',') } });
     return { readOnly: true, endsAt: row.endsAt, modules: row.viewedModuleSummary };
+  }
+
+  async supportWorkspaceSummary(actorAdminId: string, requestId: string) {
+    const repo = this.dataSource.getRepository(SupportAccessRequestEntity);
+    const row = await repo.findOne({ where: { id: requestId, requestingAdminId: actorAdminId } });
+    if (!row) throw new NotFoundException('Support-access session not found.');
+    await this.expireSupportIfNeeded(row);
+    if (row.status !== SupportAccessStatus.ACTIVE || !row.endsAt || row.endsAt.getTime() <= Date.now()) {
+      throw new ForbiddenException('Support-access session is not active.');
+    }
+
+    const tenant = await this.dataSource.getRepository(FpoRegistrationEntity).findOne({ where: { id: row.tenantId } });
+    if (!tenant) throw new NotFoundException('Tenant not found.');
+    const aggregates = await this.knownTenantTx.run(row.tenantId, async (manager) => {
+      const users = await manager.query('SELECT COUNT(*)::int AS count FROM "user_account" WHERE "tenant_id" = $1', [row.tenantId]);
+      const branches = await manager.query('SELECT COUNT(*)::int AS count FROM "settings_branch" WHERE "tenant_id" = $1 AND "isActive" = true', [row.tenantId]);
+      return {
+        activeBranches: Number((branches as Array<{ count: string | number }>)[0]?.count ?? 0),
+        tenantUsers: Number((users as Array<{ count: string | number }>)[0]?.count ?? 0),
+      };
+    });
+
+    await this.recordSupportModuleSummary(actorAdminId, requestId, ['TENANT_PROFILE_METADATA', 'BRANCH_AGGREGATE', 'USER_AGGREGATE']);
+    return {
+      readOnly: true,
+      sessionEndsAt: row.endsAt,
+      tenant: {
+        tenantId: tenant.id,
+        fpoCode: tenant.fpoCode,
+        fpoName: tenant.fpoName,
+        state: tenant.state,
+        district: tenant.district,
+      },
+      aggregates,
+      blockedRawDomains: ['MEMBER', 'KYC', 'LOAN', 'FINANCIAL', 'COLLECTION', 'INVENTORY'],
+    };
   }
 
   platformAuditBoundary() {

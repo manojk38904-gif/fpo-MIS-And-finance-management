@@ -15,8 +15,10 @@ export interface JwtPayload {
   sub: string;
   /** Tenant (FPO) UUID this user belongs to. Absent/null for a Platform Super Admin. */
   tenantId: string | null;
-  /** True only for a genuine Priority #18 Platform Super Admin account. */
+  /** True for a genuine Priority #18 platform-level administrator account. */
   isPlatformSuperAdmin: boolean;
+  /** Frozen named platform role. Null/absent for tenant users. */
+  platformRole?: 'SUPER_ADMIN' | 'SUPPORT_ADMIN' | null;
   /** Redis session id (see SessionStorePort) this access token belongs to. */
   sid: string;
 }

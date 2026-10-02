@@ -100,6 +100,18 @@ export class PlatformAdminController {
     return this.platform.listTenants();
   }
 
+  @Post('tenants/:id/suspend')
+  suspendTenant(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: TenantStatusReasonDto) {
+    const actor = this.actor(req, true);
+    return this.platform.suspendTenant(actor.id, id, dto.reason);
+  }
+
+  @Post('tenants/:id/reactivate')
+  reactivateTenant(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: TenantStatusReasonDto) {
+    const actor = this.actor(req, true);
+    return this.platform.reactivateTenant(actor.id, id, dto.reason);
+  }
+
   @Get('platform-administrators')
   platformAdmins(@Req() req: AuthenticatedRequest) {
     this.actor(req, true);
@@ -222,6 +234,12 @@ export class PlatformAdminController {
   supportModuleSummary(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: SupportModuleSummaryDto) {
     const actor = this.actor(req);
     return this.platform.recordSupportModuleSummary(actor.id, id, dto.modules);
+  }
+
+  @Get('support-access/:id/workspace-summary')
+  supportWorkspaceSummary(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    const actor = this.actor(req);
+    return this.platform.supportWorkspaceSummary(actor.id, id);
   }
 
   @Get('audit')

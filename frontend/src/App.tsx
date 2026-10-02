@@ -1,30 +1,65 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import RegistrationWizard from './pages/RegistrationWizard';
 import TenantLogin from './pages/TenantLogin';
 import PlatformAdminLogin from './pages/PlatformAdminLogin';
 import SetupPassword from './pages/SetupPassword';
 import OnboardingProgress from './pages/OnboardingProgress';
+import TenantSettingsDashboard from './pages/TenantSettingsDashboard';
+import PlatformAdminDashboard from './pages/PlatformAdminDashboard';
+import { setTenantAccessToken, setPlatformAccessToken } from './api/client';
 
 export default function App() {
   const [tenantLoggedIn, setTenantLoggedIn] = useState(false);
   const [platformLoggedIn, setPlatformLoggedIn] = useState(false);
 
+  function tenantLogout() {
+    setTenantAccessToken(null);
+    sessionStorage.removeItem('tenantRefreshToken');
+    setTenantLoggedIn(false);
+  }
+
+  function platformLogout() {
+    setPlatformAccessToken(null);
+    sessionStorage.removeItem('platformRefreshToken');
+    setPlatformLoggedIn(false);
+  }
+
   return (
     <BrowserRouter>
       <nav className="nav">
+        <div className="nav-brand">FPO SaaS</div>
         <Link to="/register">Register FPO</Link>
         <Link to="/login">FPO Login</Link>
+        {tenantLoggedIn && <Link to="/settings">Settings</Link>}
         <Link to="/platform-admin/login">Platform Admin</Link>
+        <div className="nav-spacer" />
+        {tenantLoggedIn && <button className="nav-button" onClick={tenantLogout}>FPO Logout</button>}
+        {platformLoggedIn && <button className="nav-button" onClick={platformLogout}>Platform Logout</button>}
       </nav>
       <Routes>
         <Route path="/" element={<RegistrationWizard />} />
         <Route path="/register" element={<RegistrationWizard />} />
-        <Route path="/login" element={tenantLoggedIn ? <OnboardingProgress /> : <TenantLogin onLoggedIn={() => setTenantLoggedIn(true)} />} />
+        <Route
+          path="/login"
+          element={tenantLoggedIn ? <Navigate to="/settings" replace /> : <TenantLogin onLoggedIn={() => setTenantLoggedIn(true)} />}
+        />
         <Route path="/setup-password" element={<SetupPassword />} />
         <Route
+          path="/onboarding"
+          element={tenantLoggedIn ? <OnboardingProgress /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/settings/*"
+          element={tenantLoggedIn ? <TenantSettingsDashboard /> : <Navigate to="/login" replace />}
+        />
+        <Route
           path="/platform-admin/login"
-          element={platformLoggedIn ? <div className="card"><p>✅ Platform admin logged in.</p></div> : <PlatformAdminLogin onLoggedIn={() => setPlatformLoggedIn(true)} />}
+          element={platformLoggedIn ? <Navigate to="/platform-admin" replace /> : <PlatformAdminLogin onLoggedIn={() => setPlatformLoggedIn(true)} />}
+        />
+        <Route
+          path="/platform-admin/*"
+          element={platformLoggedIn ? <PlatformAdminDashboard /> : <Navigate to="/platform-admin/login" replace />}
         />
       </Routes>
     </BrowserRouter>

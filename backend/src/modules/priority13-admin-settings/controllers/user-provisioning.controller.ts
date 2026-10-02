@@ -1,6 +1,8 @@
 import { Body, Controller, ForbiddenException, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../../common/auth/jwt-auth.guard.js';
+import { RequireTenantPermission, TenantPermissionGuard } from '../guards/tenant-permission.guard.js';
+import { StaffSetupService } from '../services/staff-setup.service.js';
 import type { JwtPayload } from '../../../common/auth/jwt-payload.interface.js';
 import { UserProvisioningService } from '../services/user-provisioning.service.js';
 import { CreateUserRequestDto, DecisionReasonDto, EditUserRequestDto, TargetUserDto } from '../dto/user-provisioning.dto.js';
@@ -11,11 +13,12 @@ interface AuthenticatedRequest extends Request {
 
 /** SET-07 — Users. See UserProvisioningService for scope and the disclosed setup-link gap. */
 @Controller('api/v1/settings/users')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantPermissionGuard)
+@RequireTenantPermission('SETTINGS.USER_MANAGE')
 export class UserProvisioningController {
   constructor(
     private readonly userProvisioningService: UserProvisioningService,
-    private readonly staffSetupService: import('../services/staff-setup.service.js').StaffSetupService,
+    private readonly staffSetupService: StaffSetupService,
   ) {}
 
   private requireTenantUser(req: AuthenticatedRequest): { tenantId: string; userId: string } {

@@ -40,7 +40,10 @@ export class TenantPermissionGuard implements CanActivate {
     }
 
     if (required === 'DYNAMIC_SETTINGS_SCREEN') {
-      const screenId = String(req.params?.screenId ?? '').toUpperCase();
+      let screenId = String(req.params?.screenId ?? '').toUpperCase();
+      if (!screenId && req.params?.id) {
+        screenId = (await this.rbac.governedSubmissionScreen(user.tenantId, String(req.params.id))) ?? '';
+      }
       required = GOVERNED_SCREEN_PERMISSION[screenId] ?? '';
       if (!required) throw new ForbiddenException('This settings screen is not available through the governed-settings endpoint.');
     }

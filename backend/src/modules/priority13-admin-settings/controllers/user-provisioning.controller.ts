@@ -13,7 +13,10 @@ interface AuthenticatedRequest extends Request {
 @Controller('api/v1/settings/users')
 @UseGuards(JwtAuthGuard)
 export class UserProvisioningController {
-  constructor(private readonly userProvisioningService: UserProvisioningService) {}
+  constructor(
+    private readonly userProvisioningService: UserProvisioningService,
+    private readonly staffSetupService: import('../services/staff-setup.service.js').StaffSetupService,
+  ) {}
 
   private requireTenantUser(req: AuthenticatedRequest): { tenantId: string; userId: string } {
     if (!req.user.tenantId) {
@@ -50,6 +53,12 @@ export class UserProvisioningController {
   reactivate(@Req() req: AuthenticatedRequest, @Body() dto: TargetUserDto) {
     const { tenantId, userId } = this.requireTenantUser(req);
     return this.userProvisioningService.requestReactivation(tenantId, userId, dto.targetUserId);
+  }
+
+  @Post(':userId/reissue-setup')
+  async reissueSetup(@Req() req: AuthenticatedRequest, @Param('userId') userId: string) {
+    const { tenantId, userId: actorUserId } = this.requireTenantUser(req);
+    return this.staffSetupService.issue(tenantId, userId, actorUserId);
   }
 
   @Post('requests/:requestId/submit')

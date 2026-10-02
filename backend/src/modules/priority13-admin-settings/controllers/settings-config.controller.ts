@@ -1,6 +1,7 @@
 import { Body, Controller, ForbiddenException, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../../common/auth/jwt-auth.guard.js';
+import { RequireTenantPermission, TenantPermissionGuard } from '../guards/tenant-permission.guard.js';
 import type { JwtPayload } from '../../../common/auth/jwt-payload.interface.js';
 import {
   DataExportRequestDto,
@@ -18,7 +19,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('api/v1/settings')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantPermissionGuard)
 export class SettingsConfigController {
   constructor(private readonly settings: SettingsConfigService) {}
 
@@ -27,50 +28,59 @@ export class SettingsConfigController {
     return { tenantId: req.user.tenantId, userId: req.user.sub };
   }
 
+  @RequireTenantPermission('SETTINGS.CONFIGURE')
   @Get('profile')
   profile(@Req() req: AuthenticatedRequest) {
     return this.settings.getProfile(this.tenant(req).tenantId);
   }
 
+  @RequireTenantPermission('SETTINGS.CONFIGURE')
   @Put('profile')
   updateProfile(@Req() req: AuthenticatedRequest, @Body() dto: ProfileUpdateDto) {
     const ctx = this.tenant(req);
     return this.settings.updateProfile(ctx.tenantId, ctx.userId, dto);
   }
 
+  @RequireTenantPermission('SETTINGS.CONFIGURE')
   @Get('branding')
   branding(@Req() req: AuthenticatedRequest) {
     return this.settings.getCurrentDirect(this.tenant(req).tenantId, 'SET-02');
   }
 
+  @RequireTenantPermission('SETTINGS.CONFIGURE')
   @Put('branding')
   saveBranding(@Req() req: AuthenticatedRequest, @Body() dto: DirectSettingSaveDto) {
     const ctx = this.tenant(req);
     return this.settings.saveDirectFromDto(ctx.tenantId, ctx.userId, 'SET-02', 'DEFAULT', dto);
   }
 
+  @RequireTenantPermission('SETTINGS.CONFIGURE')
   @Get('financial-years')
   financialYears(@Req() req: AuthenticatedRequest) {
     return this.settings.listFinancialYears(this.tenant(req).tenantId);
   }
 
+  @RequireTenantPermission('SETTINGS.CONFIGURE')
   @Post('financial-years')
   createFinancialYear(@Req() req: AuthenticatedRequest, @Body() dto: FinancialYearCreateDto) {
     const ctx = this.tenant(req);
     return this.settings.createFinancialYear(ctx.tenantId, ctx.userId, dto);
   }
 
+  @RequireTenantPermission('DYNAMIC_SETTINGS_SCREEN')
   @Get('governed/:screenId')
   listGoverned(@Req() req: AuthenticatedRequest, @Param('screenId') screenId: string) {
     return this.settings.listGoverned(this.tenant(req).tenantId, screenId.toUpperCase());
   }
 
+  @RequireTenantPermission('DYNAMIC_SETTINGS_SCREEN')
   @Post('governed/:screenId')
   createGoverned(@Req() req: AuthenticatedRequest, @Param('screenId') screenId: string, @Body() dto: GovernedSettingDraftDto) {
     const ctx = this.tenant(req);
     return this.settings.createGovernedDraft(ctx.tenantId, ctx.userId, screenId.toUpperCase(), dto);
   }
 
+  @RequireTenantPermission('DYNAMIC_SETTINGS_SCREEN')
   @Post('governed/submissions/:id/submit')
   async submit(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const ctx = this.tenant(req);
@@ -78,6 +88,7 @@ export class SettingsConfigController {
     return { submitted: true };
   }
 
+  @RequireTenantPermission('DYNAMIC_SETTINGS_SCREEN')
   @Post('governed/submissions/:id/approve')
   async approve(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: DecisionDto) {
     const ctx = this.tenant(req);
@@ -85,6 +96,7 @@ export class SettingsConfigController {
     return { approved: true };
   }
 
+  @RequireTenantPermission('DYNAMIC_SETTINGS_SCREEN')
   @Post('governed/submissions/:id/reject')
   async reject(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: DecisionDto) {
     const ctx = this.tenant(req);
@@ -92,6 +104,7 @@ export class SettingsConfigController {
     return { rejected: true };
   }
 
+  @RequireTenantPermission('DYNAMIC_SETTINGS_SCREEN')
   @Post('governed/submissions/:id/send-back')
   async sendBack(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: DecisionDto) {
     const ctx = this.tenant(req);
@@ -99,39 +112,46 @@ export class SettingsConfigController {
     return { sentBack: true };
   }
 
+  @RequireTenantPermission('SETTINGS.VIEW')
   @Get('accounting')
   accounting(@Req() req: AuthenticatedRequest) {
     this.tenant(req);
     return this.settings.accountingSettingsBoundary();
   }
 
+  @RequireTenantPermission('SETTINGS.CONFIGURE')
   @Get('authorised-signatures/:key')
   signature(@Req() req: AuthenticatedRequest, @Param('key') key: string) {
     return this.settings.getCurrentDirect(this.tenant(req).tenantId, 'SET-20', key);
   }
 
+  @RequireTenantPermission('SETTINGS.CONFIGURE')
   @Put('authorised-signatures/:key')
   saveSignature(@Req() req: AuthenticatedRequest, @Param('key') key: string, @Body() dto: DirectSettingSaveDto) {
     const ctx = this.tenant(req);
     return this.settings.saveDirectFromDto(ctx.tenantId, ctx.userId, 'SET-20', key, dto);
   }
 
+  @RequireTenantPermission('SETTINGS.COMPLIANCE_MANAGE')
   @Get('regulatory-verification')
   regulatory(@Req() req: AuthenticatedRequest) {
     return this.settings.regulatoryPoints(this.tenant(req).tenantId);
   }
 
+  @RequireTenantPermission('SETTINGS.DATA_EXPORT')
   @Get('backup-export/requests')
   exportRequests(@Req() req: AuthenticatedRequest) {
     return this.settings.listDataExports(this.tenant(req).tenantId);
   }
 
+  @RequireTenantPermission('SETTINGS.DATA_EXPORT')
   @Post('backup-export/requests')
   requestExport(@Req() req: AuthenticatedRequest, @Body() dto: DataExportRequestDto) {
     const ctx = this.tenant(req);
     return this.settings.requestDataExport(ctx.tenantId, ctx.userId, dto);
   }
 
+  @RequireTenantPermission('SETTINGS.DATA_EXPORT')
   @Post('backup-export/requests/:id/cancel')
   async cancelExport(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const ctx = this.tenant(req);
@@ -139,11 +159,13 @@ export class SettingsConfigController {
     return { cancelled: true };
   }
 
+  @RequireTenantPermission('SETTINGS.DATA_EXPORT')
   @Get('backup-export/public-qr-retention')
   retention(@Req() req: AuthenticatedRequest) {
     return this.settings.getRetention(this.tenant(req).tenantId);
   }
 
+  @RequireTenantPermission('SETTINGS.DATA_EXPORT')
   @Put('backup-export/public-qr-retention')
   saveRetention(@Req() req: AuthenticatedRequest, @Body() dto: RetentionConfigurationDto) {
     const ctx = this.tenant(req);

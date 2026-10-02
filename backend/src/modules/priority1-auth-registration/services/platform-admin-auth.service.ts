@@ -161,7 +161,9 @@ export class PlatformAdminAuthService {
       throw new UnauthorizedException('Incorrect authentication code.');
     }
 
-    const tokens = await this.issueTokens(admin.id, meta);
+    admin.lastLoginAt = new Date();
+    await repo.save(admin);
+    const tokens = await this.issueTokens(admin, meta);
     await this.audit.record({ eventType: 'platform_admin.login.success', tenantId: null, actorUserId: admin.id, metadata: { ...ipMeta(meta) } });
     return tokens;
   }
@@ -184,7 +186,8 @@ export class PlatformAdminAuthService {
     }
   }
 
-  private async issueTokens(adminId: string, meta: RequestMetadata): Promise<{ accessToken: string; refreshToken: string }> {
+  private async issueTokens(admin: PlatformAdminAccountEntity, meta: RequestMetadata): Promise<{ accessToken: string; refreshToken: string }> {
+    const adminId = admin.id;
     const expiryDays = this.config.get<number>('refreshToken.expiryDays') ?? 30;
     const ttlSeconds = expiryDays * 24 * 60 * 60;
 
@@ -198,7 +201,7 @@ export class PlatformAdminAuthService {
       userAgent: meta.userAgent,
     });
 
-    const payload: JwtPayload = { sub: adminId, tenantId: null, isPlatformSuperAdmin: true, sid: session.sessionId };
+    const payload: JwtPayload = { sub: adminId, tenantId: null, isPlatformSuperAdmin: true, platformRole: admin.role, sid: session.sessionId };
     const accessToken = await this.jwtService.signAsync(payload);
 
     const rawRefresh = this.secretHasher.generateOpaqueSecret();
@@ -248,7 +251,7 @@ export class PlatformAdminAuthService {
       throw new UnauthorizedException('This account is no longer eligible to refresh its session.');
     }
 
-    const newTokens = await this.issueTokens(record.adminId, meta);
+    const newTokens = await this.issueTokens(admin, meta);
     const newHash = this.secretHasher.hash(newTokens.refreshToken);
     const newRecord = await repo.findOne({ where: { tokenHash: newHash } });
     // Same fix as AuthService.refreshTenantToken: `record` predates the

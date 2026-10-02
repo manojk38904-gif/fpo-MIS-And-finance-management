@@ -16,6 +16,7 @@ import { HealthModule } from './health/health.module.js';
 import { AuditModule } from './common/audit/audit.module.js';
 import { Priority1AuthRegistrationModule } from './modules/priority1-auth-registration/priority1-auth-registration.module.js';
 import { Priority13AdminSettingsModule } from './modules/priority13-admin-settings/priority13-admin-settings.module.js';
+import { Priority18PlatformAdminModule } from './modules/priority18-platform-admin/priority18-platform-admin.module.js';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { Priority13AdminSettingsModule } from './modules/priority13-admin-settin
     // Admin screens) is added here once its own task builds it.
     Priority1AuthRegistrationModule,
     Priority13AdminSettingsModule,
+    Priority18PlatformAdminModule,
   ],
   providers: [
     // Execution order for a request: Guards (in provider order) -> Interceptors.

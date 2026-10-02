@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Priority1AuthRegistrationModule } from '../priority1-auth-registration/priority1-auth-registration.module.js';
+import { Priority13AdminSettingsModule } from '../priority13-admin-settings/priority13-admin-settings.module.js';
 import { SubscriptionPlanEntity } from './entities/subscription-plan.entity.js';
 import { TenantSubscriptionEntity } from './entities/tenant-subscription.entity.js';
 import { PlatformConfigurationEntity } from './entities/platform-configuration.entity.js';
@@ -19,6 +20,7 @@ import { PlatformAdminService } from './platform-admin.service.js';
 @Module({
   imports: [
     Priority1AuthRegistrationModule,
+    Priority13AdminSettingsModule,
     TypeOrmModule.forFeature([
       SubscriptionPlanEntity,
       TenantSubscriptionEntity,

@@ -16,6 +16,10 @@ import { DirectSettingEntity } from './entities/direct-setting.entity.js';
 import { DataExportRequestEntity } from './entities/data-export-request.entity.js';
 import { SettingsConfigService } from './services/settings-config.service.js';
 import { SettingsConfigController } from './controllers/settings-config.controller.js';
+import { StaffSetupTokenEntity } from './entities/staff-setup-token.entity.js';
+import { StaffSetupService } from './services/staff-setup.service.js';
+import { StaffSetupController } from './controllers/staff-setup.controller.js';
+import { SettingsAssetController } from './controllers/settings-asset.controller.js';
 
 @Module({
   imports: [
@@ -30,8 +34,8 @@ import { SettingsConfigController } from './controllers/settings-config.controll
       DataExportRequestEntity,
     ]),
   ],
-  providers: [RoleService, BranchService, UserProvisioningService, SettingsConfigService],
-  controllers: [RoleController, BranchController, UserProvisioningController, SettingsConfigController],
-  exports: [RoleService, BranchService, UserProvisioningService, SettingsConfigService],
+  providers: [RoleService, BranchService, UserProvisioningService, SettingsConfigService, StaffSetupService],
+  controllers: [RoleController, BranchController, UserProvisioningController, SettingsConfigController, StaffSetupController, SettingsAssetController],
+  exports: [RoleService, BranchService, UserProvisioningService, SettingsConfigService, StaffSetupService],
 })
 export class Priority13AdminSettingsModule {}

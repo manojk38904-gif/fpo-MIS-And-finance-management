@@ -12,6 +12,7 @@ import { SessionModule } from './common/session/session.module.js';
 import { DeliveryModule } from './common/delivery/delivery.module.js';
 import { StorageModule } from './common/storage/storage.module.js';
 import { OptionalJwtAuthGuard } from './common/auth/optional-jwt-auth.guard.js';
+import { TenantSubscriptionAccessGuard } from './common/auth/tenant-subscription-access.guard.js';
 import { HealthModule } from './health/health.module.js';
 import { AuditModule } from './common/audit/audit.module.js';
 import { Priority1AuthRegistrationModule } from './modules/priority1-auth-registration/priority1-auth-registration.module.js';
@@ -62,6 +63,7 @@ import { Priority18PlatformAdminModule } from './modules/priority18-platform-adm
     // TenantContextInterceptor only ever reads a guard-verified req.user —
     // never a client-supplied header — when it establishes tenant context.
     { provide: APP_GUARD, useClass: OptionalJwtAuthGuard },
+    { provide: APP_GUARD, useClass: TenantSubscriptionAccessGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
   ],

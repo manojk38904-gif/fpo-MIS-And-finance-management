@@ -80,7 +80,7 @@ export interface AppConfig {
     maxSizeBytes: number;
     allowedMimeTypes: string[];
   };
-  platform: {
+  fpoCode: {\n    /** Explicit deployment-configured format; no business-format default is invented. */\n    format: string;\n  };\n  platform: {
     /** 0 = deliberately unconfigured; recovery remains blocked until explicitly configured. */
     recoveryRequestTtlHours: number;
     /** 0 = deliberately unconfigured; support access remains blocked until explicitly configured. */

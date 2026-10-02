@@ -84,7 +84,7 @@ export class PlatformAdminService {
       });
     }
     if (input.search?.trim()) {
-      qb.andWhere('(LOWER(COALESCE(r.fpoName, \\'\\')) LIKE :q OR LOWER(COALESCE(r.cin, \\'\\')) LIKE :q OR LOWER(COALESCE(r.pan, \\'\\')) LIKE :q)', {
+      qb.andWhere("(LOWER(COALESCE(r.fpoName, '')) LIKE :q OR LOWER(COALESCE(r.cin, '')) LIKE :q OR LOWER(COALESCE(r.pan, '')) LIKE :q)", {
         q: '%' + input.search.trim().toLowerCase() + '%',
       });
     }
@@ -655,7 +655,7 @@ export class PlatformAdminService {
     }
     row.viewedModuleSummary = Array.from(new Set([...(row.viewedModuleSummary ?? []), ...modules])).slice(0, 100);
     await repo.save(row);
-    await this.audit.record({ eventType: 'platform.support_access.module_viewed', tenantId: row.tenantId, actorUserId: actorAdminId, subjectId: row.id, metadata: { modules } });
+    await this.audit.record({ eventType: 'platform.support_access.module_viewed', tenantId: row.tenantId, actorUserId: actorAdminId, subjectId: row.id, metadata: { modules: modules.join(',') } });
     return { readOnly: true, endsAt: row.endsAt, modules: row.viewedModuleSummary };
   }
 

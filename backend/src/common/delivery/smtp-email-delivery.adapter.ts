@@ -46,7 +46,7 @@ export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
         auth: this.config.get<string>('smtp.user')
           ? { user: this.config.get<string>('smtp.user'), pass: this.config.get<string>('smtp.pass') }
           : undefined,
-      });
+      } as any);
     }
     return this.transporter;
   }

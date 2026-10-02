@@ -73,7 +73,7 @@ export class AuthService {
       throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
     }
 
-    if (tenant.status !== FpoRegistrationStatus.ACTIVE) {
+    if (tenant.status !== FpoRegistrationStatus.ACTIVE || (await this.isTenantSubscriptionSuspended(tenant.id))) {
       await this.audit.record({ eventType: 'auth.login.failure', tenantId: tenant.id, metadata: { reason: 'tenant_not_active', ...ipMeta(meta) } });
       throw new ForbiddenException('This FPO account is not currently active. Please contact your Admin.');
     }
@@ -257,7 +257,7 @@ export class AuthService {
     // Item 2 — refresh must re-check CURRENT tenant/user state, not just
     // trust the refresh-token row's own validity.
     const tenant = await this.dataSource.getRepository(FpoRegistrationEntity).findOne({ where: { id: record.tenantId } });
-    if (!tenant || tenant.status !== FpoRegistrationStatus.ACTIVE) {
+    if (!tenant || tenant.status !== FpoRegistrationStatus.ACTIVE || (await this.isTenantSubscriptionSuspended(record.tenantId))) {
       throw new UnauthorizedException('This FPO account is not currently active.');
     }
     const user = await this.knownTenantTx.run(record.tenantId, (manager) =>
@@ -349,6 +349,14 @@ export class AuthService {
     await this.audit.record({ eventType: 'auth.password_set', tenantId: record.tenantId, actorUserId: record.userId });
     // No second compulsory password-change step is ever triggered after this (CA-1).
   }
+  private async isTenantSubscriptionSuspended(tenantId: string): Promise<boolean> {
+    const rows = await this.dataSource.query(
+      'SELECT "state" FROM "tenant_subscription" WHERE "tenantId" = $1 ORDER BY "createdAt" DESC LIMIT 1',
+      [tenantId],
+    );
+    return (rows as Array<{ state?: string }>)[0]?.state === 'SUSPENDED';
+  }
+
 }
 
 function ipMeta(meta: RequestMetadata): Record<string, string> {

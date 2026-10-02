@@ -78,6 +78,8 @@ jobs:
           $$;
           GRANT CONNECT ON DATABASE fpo_saas TO fpo_app_user;
           GRANT USAGE, CREATE ON SCHEMA public TO fpo_app_user;
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
           SQL
       - run: npm ci --legacy-peer-deps
       - run: npm run build

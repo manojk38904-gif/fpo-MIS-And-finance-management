@@ -11,6 +11,8 @@ import { validateEnv } from '../../config/env.validation.js';
 import { DatabaseModule } from '../../database/database.module.js';
 import { AuthModule } from '../../common/auth/auth.module.js';
 import { AuditModule } from '../../common/audit/audit.module.js';
+import { DeliveryModule } from '../../common/delivery/delivery.module.js';
+import { StorageModule } from '../../common/storage/storage.module.js';
 import { OptionalJwtAuthGuard } from '../../common/auth/optional-jwt-auth.guard.js';
 import { TenantContextModule } from '../../common/tenant-context/tenant-context.module.js';
 import { TenantContextInterceptor } from '../../common/tenant-context/tenant-context.interceptor.js';
@@ -34,6 +36,8 @@ process.env.NODE_ENV = 'test';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration], validate: validateEnv }),
     SessionModule,
+    DeliveryModule,
+    StorageModule,
     AuthModule,
     AuditModule,
     TenantContextModule,
@@ -101,7 +105,7 @@ describe('Priority #18 — Platform Super Admin control-plane integration', () =
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   async function platformToken() {

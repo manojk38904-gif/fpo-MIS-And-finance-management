@@ -1,41 +1,59 @@
 # FPO Member Agricultural Input & Credit Management System
 
-Multi-tenant SaaS platform for Farmer Producer Organisations (FPOs) in India — member management, KYC, credit scoring, agricultural input/member credit, approvals, disbursement, repayment, automated accounting, and reporting, with strict per-FPO data isolation.
+Multi-tenant SaaS platform for Farmer Producer Organisations (FPOs) in India, implemented against frozen Phase-2.2 specifications with strict tenant isolation, maker-checker controls, audit boundaries, and no invented financial/legal rules.
 
-**This repository currently contains Priority #1 only** (Auth / Registration / Onboarding) — backend and a first frontend. See [`backend/README.md`](backend/README.md) for exactly what is implemented, what is explicitly out of scope, and how to run it. Priority #2–#18 (members/KYC, credit products, accounting, collections, platform admin, etc.) have frozen specification documents but no code yet — see below.
+## Current implemented Phase-1 scope
+
+This repository now contains the authorised Phase-1 implementation for:
+
+- **Priority #1 v1.2 — Auth / Registration / Onboarding**
+- **Priority #13 v1.3 — Admin / Settings / RBAC**
+- **Priority #18 v1.2 — Platform Super Admin / Subscription**
+
+The backend is NestJS + PostgreSQL + Redis and the frontend is React/Vite. GitHub Actions runs build, lint, migrations, real PostgreSQL/Redis integration tests, and frontend build/lint on every Phase-1 branch/main update.
 
 ## Repository layout
 
 ```
-backend/   NestJS (TypeScript) API — Priority #1 (Auth/Registration/Onboarding) implemented and tested
-frontend/  React + TypeScript (Vite) — Priority #1 screens: FPO self-registration wizard, OTP,
-           document upload, FPO login, Platform Super Admin login (password + TOTP), password
-           setup, onboarding progress / Go-Live. Calls the backend's real, tested API routes
-           directly (src/api/*.ts) — no mocked or placeholder business logic.
-docs/      (empty here — specification documents are tracked in the project workspace, not this repo)
+backend/   NestJS API, migrations, RLS, auth/session infrastructure, P1/P13/P18 implementation and integration tests
+frontend/  React/Vite user flows for registration/login/onboarding plus Platform Administration dashboard
+.github/   Phase-1 CI workflow
 ```
 
-## Status (as of this commit)
+## Implementation status
 
 | Area | Status |
 |---|---|
-| Priority #1 — Auth/Registration/Onboarding (backend) | Implemented, security/spec-conformance corrected, 71/71 tests passing (real PostgreSQL + Redis) |
-| Priority #1 — Frontend | First working version: registration wizard, OTP, document upload, FPO login, Platform Admin login + TOTP, password setup, onboarding/Go-Live screens. Builds clean, 0 lint errors, draft-creation flow verified live against the real backend. **Not yet styled/reviewed for production UX, and SMTP must be configured for OTP email to actually send.** |
-| Priority #13 — Admin/Settings/RBAC | **In progress.** Built so far: **SET-08** Roles & Permissions, **SET-03** Branch Master, **SET-07** Users (Create/Edit/Deactivate/Reactivate, all Maker-Checker-governed — approving a Create genuinely inserts a `user_account` row with role + branch access, never on Submit). **Known, disclosed gap in SET-07:** an approved user-Create does not yet email a working setup link — Priority #1's existing setup-token flow is explicitly scoped to the Initial FPO Admin only, so a separate staff setup-link mechanism is still to be built, not quietly skipped. 15 of 18 screens remain: SET-01,02,05,06,09,11,12,13,14,15,16,17,20,21,22. |
-| Priority #2–#12, #14–#18 (members, credit, loans, accounting, collections, reports, platform admin, etc.) | **Specifications frozen; code not started** |
-| Production-ready / deployable as a complete product | **No** — only one of eighteen planned modules exists |
+| Priority #1 | Implemented for the frozen Phase-1 surface. Registration, OTP, tenant login, platform-admin MFA login, password setup/reset, onboarding tracking and server-side Go-Live gate are wired. |
+| Priority #13 | All 18 active SET surfaces have backend implementation or an explicit ownership boundary. SET-04/SET-10 Warehouse are retired; SET-18/SET-19 remain Priority #12-owned. |
+| Priority #18 | Platform control-plane implemented: FPO application review/approval decision, tenant/admin management, versioned subscription plans, subscription lifecycle, usage/health surfaces, consent-based support access, recovery controls, SA-08/SA-10 source boundaries, and SA-09 Disabled/Coming Soon state. |
+| Tenant isolation | PostgreSQL RLS with a least-privilege non-BYPASSRLS application role; no generic platform-admin RLS bypass. |
+| CI | Backend build/lint/migrations/tests and frontend build/lint are passing on the Phase-1 branch. |
+| Complete product / Production Ready | **No.** Priorities outside the authorised Phase-1 scope are not implemented, professional-verification items remain pending, and the explicit external blockers below remain unresolved. |
 
-### Running the frontend locally
-```
+## Explicit unresolved dependencies — not fabricated
+
+The code deliberately blocks or reports unavailable where the frozen sources do not define enough to implement safely:
+
+- **Production FPO-Code Numbering Engine:** the frozen sources require a platform-generated unique immutable FPO-Code, but do not define the exact production format/algorithm. Approval can be recorded; activation remains pending until that authoritative adapter is supplied.
+- **SET-07 staff credential/setup-link flow:** frozen Priority #1 CA-1 defines the secure setup-link specifically for the Initial FPO Admin; no authoritative staff credential issuance mechanism was found. Staff creation therefore remains `PENDING_SETUP` without an invented credential flow.
+- **Full Go-Live:** Branch and Rounding prerequisites now consume real Priority #13 truth; Loan/Input-Credit Product/Approval and Chart-of-Accounts prerequisites still block until their owning Priorities are implemented.
+- **Priority #15 audit truth:** SA-08 does not expose the transient local audit outbox as a substitute.
+- **SA-10 authoritative security-event feed:** not fabricated from local transport data.
+- **CA-18 calendar automation:** subscription state can be changed with audited controls, but automatic date-driven lifecycle transitions are not invented without the authoritative platform-timezone source.
+- **Five Professional Verification items:** remain pending / not verified.
+
+## Local run
+
+Backend instructions are in [backend/README.md](backend/README.md). Frontend:
+
+```bash
 cd frontend
-npm install
-cp .env.example .env   # points at the backend; edit VITE_API_BASE_URL if needed
+npm ci
+cp .env.example .env
 npm run dev
 ```
-Requires the backend (see `backend/README.md`) running and reachable at the configured API URL.
 
-Full detail: `backend/README.md` and `backend/FPO_SaaS_PHASE_2.2_PHASE1_IMPLEMENTATION_PROGRESS_v1.0.md`-equivalent progress record (kept in the project workspace).
+## Governance
 
-## Working method (unchanged going forward)
-
-This project is built phase-by-phase with explicit approval at each gate — architecture/specification first, then module-by-module implementation, each stage tested before the next begins, with financial/legal rules never invented and always made configurable or referred back to the Owner. Nothing in Priority #2–#18 is coded in this repository yet; their frozen specifications exist separately and implementation proceeds module by module as authorized.
+Frozen business ownership is preserved. No Warehouse master/dimension is reintroduced. No hidden defaults are used to pass Go-Live. Financial, legal and regulatory rules that require an owner/professional source remain configurable, blocked, or explicitly unavailable rather than guessed.

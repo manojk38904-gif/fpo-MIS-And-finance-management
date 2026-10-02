@@ -5,6 +5,7 @@ import TenantLogin from './pages/TenantLogin';
 import PlatformAdminLogin from './pages/PlatformAdminLogin';
 import SetupPassword from './pages/SetupPassword';
 import OnboardingProgress from './pages/OnboardingProgress';
+import PlatformAdminDashboard from './pages/PlatformAdminDashboard';
 
 export default function App() {
   const [tenantLoggedIn, setTenantLoggedIn] = useState(false);
@@ -24,7 +25,7 @@ export default function App() {
         <Route path="/setup-password" element={<SetupPassword />} />
         <Route
           path="/platform-admin/login"
-          element={platformLoggedIn ? <div className="card"><p>✅ Platform admin logged in.</p></div> : <PlatformAdminLogin onLoggedIn={() => setPlatformLoggedIn(true)} />}
+          element={platformLoggedIn ? <PlatformAdminDashboard /> : <PlatformAdminLogin onLoggedIn={() => setPlatformLoggedIn(true)} />}
         />
       </Routes>
     </BrowserRouter>

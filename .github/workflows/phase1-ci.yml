@@ -50,6 +50,7 @@ jobs:
       JWT_REFRESH_SECRET: ci-refresh-secret-at-least-32-characters-long
       REDIS_URL: redis://localhost:6379
       ALLOWED_ORIGINS: http://localhost:5173
+      FPO_CODE_FORMAT: FPO-{seq:6}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

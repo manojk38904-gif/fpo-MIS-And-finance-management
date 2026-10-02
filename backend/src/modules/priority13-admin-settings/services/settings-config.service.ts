@@ -118,8 +118,6 @@ export class SettingsConfigService {
     this.assertGovernedScreen(screenId);
     const action = (dto.action ?? 'UPSERT') as GovernedSettingAction;
     return this.txRunner.run(async (manager) => {
-      await this.validateGovernedPayload(manager, tenantId, screenId, dto.payload, action);
-
       let supersedes: GovernedSettingEntity | null = null;
       if (dto.supersedesId) {
         supersedes = await manager.getRepository(GovernedSettingEntity).findOne({ where: { id: dto.supersedesId, tenantId, screenId } });
@@ -128,11 +126,18 @@ export class SettingsConfigService {
         }
         if (supersedes.configKey !== dto.configKey) throw new BadRequestException('configKey cannot change across versions.');
       } else {
+        if (action !== GovernedSettingAction.UPSERT) {
+          throw new BadRequestException('Deactivate/Reactivate must reference the effective version with supersedesId.');
+        }
         const existing = await manager.getRepository(GovernedSettingEntity).findOne({
           where: { tenantId, screenId, configKey: dto.configKey, status: GovernedSettingStatus.ACTIVE },
         });
         if (existing) throw new ConflictException('An effective configuration already exists. Create a new version using supersedesId.');
       }
+
+      const effectivePayload =
+        action === GovernedSettingAction.UPSERT ? dto.payload : { ...(supersedes?.payload ?? {}) };
+      await this.validateGovernedPayload(manager, tenantId, screenId, effectivePayload, action, supersedes?.id ?? null);
 
       const latest = await manager.getRepository(GovernedSettingEntity)
         .createQueryBuilder('g')
@@ -145,7 +150,7 @@ export class SettingsConfigService {
           tenantId,
           screenId,
           configKey: dto.configKey,
-          payload: dto.payload,
+          payload: effectivePayload,
           action,
           status: GovernedSettingStatus.DRAFT,
           version: (latest?.version ?? 0) + 1,
@@ -473,6 +478,7 @@ export class SettingsConfigService {
     screenId: string,
     payload: Record<string, unknown>,
     action: GovernedSettingAction,
+    supersedesId: string | null,
   ) {
     if (action !== GovernedSettingAction.UPSERT) return;
 
@@ -489,6 +495,7 @@ export class SettingsConfigService {
           active: GovernedSettingStatus.ACTIVE,
         })
         .andWhere("g.payload->>'accountNumber' = :accountNumber", { accountNumber: String(payload.accountNumber) })
+        .andWhere(supersedesId ? 'g.id <> :supersedesId' : '1=1', supersedesId ? { supersedesId } : {})
         .getOne();
       if (duplicate) throw new ConflictException('This bank account number is already configured for this tenant.');
       return;
@@ -683,7 +690,7 @@ function validateScoreBands(bands: unknown[]) {
 
   if (parsed[0].min !== 0) throw new BadRequestException('Score bands must start at 0.');
   for (let i = 1; i < parsed.length; i++) {
-    if (parsed[i].min !== parsed[i - 1].max) throw new BadRequestException('Score bands must be gapless and non-overlapping.');
+    if (parsed[i].min !== parsed[i - 1].max) throw new BadRequestException('Score bands must be gapless and non-overlapping; adjacent bands share only the configured boundary value.');
   }
 }
 

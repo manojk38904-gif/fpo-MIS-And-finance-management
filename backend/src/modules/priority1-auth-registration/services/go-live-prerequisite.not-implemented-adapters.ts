@@ -75,7 +75,7 @@ export class NotImplementedRoundingRuleAdapter implements RoundingRulePort {
   async check(tenantId: string): Promise<PrerequisiteCheckResult> {
     const rows = await this.knownTenantTx.run(tenantId, (manager) =>
       manager.query(
-        'SELECT "payload" FROM "settings_governed_config" WHERE "tenant_id" = $1 AND "screenId" = \\'SET-14\\' AND "status" = \\'ACTIVE\\' ORDER BY "version" DESC LIMIT 1',
+        "SELECT \"payload\" FROM \"settings_governed_config\" WHERE \"tenant_id\" = $1 AND \"screenId\" = 'SET-14' AND \"status\" = 'ACTIVE' ORDER BY \"version\" DESC LIMIT 1",
         [tenantId],
       ),
     );

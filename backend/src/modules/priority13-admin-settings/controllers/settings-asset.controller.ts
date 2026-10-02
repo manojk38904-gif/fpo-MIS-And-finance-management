@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../../common/auth/jwt-auth.guard.js';
+import { RequireTenantPermission, TenantPermissionGuard } from '../guards/tenant-permission.guard.js';
 import type { JwtPayload } from '../../../common/auth/jwt-payload.interface.js';
 import { AUDIT_EVENT_PORT, type AuditEventPort } from '../../../common/audit/audit-event.port.js';
 import { FILE_STORAGE_PORT, MALWARE_SCAN_PORT, type FileStoragePort, type MalwareScanPort } from '../../../common/storage/file-storage.port.js';
@@ -27,7 +28,8 @@ const PURPOSE_MIMES: Record<string, ReadonlySet<string>> = {
 };
 
 @Controller('api/v1/settings/assets')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantPermissionGuard)
+@RequireTenantPermission('SETTINGS.CONFIGURE')
 export class SettingsAssetController {
   constructor(
     private readonly config: ConfigService,

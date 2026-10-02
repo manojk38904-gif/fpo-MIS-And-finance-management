@@ -149,8 +149,6 @@ describe('Priority #18 — Platform Control Plane (real PostgreSQL + Redis)', ()
     });
     expect(v2.version).toBe(2);
 
-    const old = await dataSource.getRepository(v1.constructor as typeof PlatformAdminAccountEntity).findOne({ where: { id: v1.id } }).catch(() => null);
-    void old;
     const plans = await service.listPlans();
     const historical = plans.find((p) => p.id === v1.id);
     expect(historical?.status).toBe('SUPERSEDED');

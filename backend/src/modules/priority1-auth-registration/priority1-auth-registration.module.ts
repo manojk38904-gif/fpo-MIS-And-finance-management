@@ -92,6 +92,6 @@ import { OnboardingController } from './controllers/onboarding.controller.js';
     { provide: REGULATORY_VERIFICATION_PORT, useClass: NotImplementedRegulatoryVerificationAdapter },
     { provide: ROUNDING_RULE_PORT, useClass: NotImplementedRoundingRuleAdapter },
   ],
-  exports: [TenantActivationService],
+  exports: [TenantActivationService, TotpService],
 })
 export class Priority1AuthRegistrationModule {}

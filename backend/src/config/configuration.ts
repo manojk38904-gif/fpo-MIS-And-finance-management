@@ -80,6 +80,12 @@ export interface AppConfig {
     maxSizeBytes: number;
     allowedMimeTypes: string[];
   };
+  platform: {
+    /** 0 = deliberately unconfigured; recovery remains blocked until explicitly configured. */
+    recoveryRequestTtlHours: number;
+    /** 0 = deliberately unconfigured; support access remains blocked until explicitly configured. */
+    supportAccessMaxMinutes: number;
+  };
   uploadsDir: string;
 }
 
@@ -148,6 +154,10 @@ export default (): AppConfig => ({
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean),
+  },
+  platform: {
+    recoveryRequestTtlHours: parseInt(process.env.PLATFORM_RECOVERY_REQUEST_TTL_HOURS ?? '0', 10),
+    supportAccessMaxMinutes: parseInt(process.env.PLATFORM_SUPPORT_ACCESS_MAX_MINUTES ?? '0', 10),
   },
   uploadsDir: process.env.UPLOADS_DIR ?? '',
 });

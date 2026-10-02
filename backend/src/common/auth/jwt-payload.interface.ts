@@ -19,6 +19,12 @@ export interface JwtPayload {
   isPlatformSuperAdmin: boolean;
   /** Frozen named platform role. Null/absent for tenant users. */
   platformRole?: 'SUPER_ADMIN' | 'SUPPORT_ADMIN' | null;
+  /**
+   * Tenant role snapshot at token issuance. Keeping the role-version id in
+   * the token preserves SET-08/SET-07's frozen "permission changes take
+   * effect on next login/refresh" behaviour; old role versions are retained.
+   */
+  roleId?: string | null;
   /** Redis session id (see SessionStorePort) this access token belongs to. */
   sid: string;
 }

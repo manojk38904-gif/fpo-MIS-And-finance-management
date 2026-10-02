@@ -49,10 +49,9 @@ import { Priority18PlatformAdminModule } from './modules/priority18-platform-adm
     TenantContextModule,
     DatabaseModule,
     HealthModule,
-    // Priority #1 (Auth/Registration/Onboarding) is implemented and wired as of
-    // this pass. Priority #13 (Admin/Settings/RBAC) is being built incrementally
-    // — SET-08 (Roles & Permissions) only so far. Priority #18 (Platform Super
-    // Admin screens) is added here once its own task builds it.
+    // Phase-1 authorised modules: Priority #1 Auth/Registration/Onboarding,
+    // Priority #13 Admin/Settings/RBAC, and Priority #18 Platform control-plane.
+    // Later Priorities remain outside this implementation scope.
     Priority1AuthRegistrationModule,
     Priority13AdminSettingsModule,
     Priority18PlatformAdminModule,

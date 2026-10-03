@@ -25,6 +25,9 @@ export default function App() {
     setPlatformLoggedIn(false);
   }
 
+  const query = new URLSearchParams(window.location.search);
+  const rootPage = query.get('fpoSetupToken') ? <SetupPassword /> : <RegistrationWizard />;
+
   return (
     <BrowserRouter>
       <nav className="nav">
@@ -38,7 +41,7 @@ export default function App() {
         {platformLoggedIn && <button className="nav-button" onClick={platformLogout}>Platform Logout</button>}
       </nav>
       <Routes>
-        <Route path="/" element={new URLSearchParams(window.location.search).get("setupToken") ? <PlatformAdminLogin onLoggedIn={() => setPlatformLoggedIn(true)} /> : <RegistrationWizard />} />
+        <Route path="/" element={rootPage} />
         <Route path="/register" element={<RegistrationWizard />} />
         <Route
           path="/login"

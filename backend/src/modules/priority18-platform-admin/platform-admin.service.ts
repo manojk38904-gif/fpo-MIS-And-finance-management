@@ -197,6 +197,12 @@ export class PlatformAdminService {
     }
   }
 
+  async resendFpoSetupLink(id: string, actorAdminId: string) {
+    await this.activation.reissueInitialAdminSetup(id);
+    await this.audit.record({ eventType: 'platform.fpo_setup_link.reissued', tenantId: id, actorUserId: actorAdminId, subjectId: id, metadata: {} });
+    return { sent: true };
+  }
+
   async listTenants() {
     const tenants = await this.dataSource.getRepository(FpoRegistrationEntity).find({
       where: { status: FpoRegistrationStatus.ACTIVE },

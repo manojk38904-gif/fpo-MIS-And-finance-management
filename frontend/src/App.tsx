@@ -28,7 +28,14 @@ export default function App() {
   }
 
   const query = new URLSearchParams(window.location.search);
-  const rootPage = query.get('fpoSetupToken') ? <SetupPassword /> : <RegistrationWizard />;
+  const page = query.get('page');
+  const rootPage = query.get('fpoSetupToken')
+    ? <SetupPassword />
+    : page === 'login'
+      ? <TenantLogin onLoggedIn={() => setTenantLoggedIn(true)} />
+      : page === 'member-apply'
+        ? <MemberApply />
+        : <RegistrationWizard />;
 
   return (
     <BrowserRouter>

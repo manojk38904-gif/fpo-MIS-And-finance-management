@@ -71,6 +71,11 @@ export default function PlatformAdminDashboard() {
     await run(async()=>{await api.post(`/super-admin/applications/${id}/${action}`,{reason});await load();},`Application ${action} completed.`);
   }
 
+  async function resendFpoSetupLink(){
+    if(!id) return setError('Application ID required.');
+    await run(async()=>{await api.post(`/super-admin/tenants/${id}/resend-setup-link`,{});},'A new FPO setup link was sent.');
+  }
+
   async function createPlan(){
     await run(async()=>{await api.post('/super-admin/subscription-plans',payload());await load();},'Plan created.');
   }
@@ -103,7 +108,7 @@ export default function PlatformAdminDashboard() {
       <div className="page-head"><div><h1>{screen} — {title}</h1><p>Platform-level control surface. Tenant raw-table bypass is not used.</p></div><button onClick={()=>void load()} disabled={busy}>Refresh</button></div>
       {message&&<div className="success">{message}</div>}{error&&<div className="error">{error}</div>}
 
-      {screen==='SA-01'&&<section className="panel"><h3>Application Review</h3><JsonBlock value={data}/><div className="grid2"><label>Application ID<input value={id} onChange={e=>setId(e.target.value)}/></label><label>Reason<input value={reason} onChange={e=>setReason(e.target.value)}/></label></div><div className="actions"><button onClick={()=>void appAction('begin-review')}>Begin Review</button><button onClick={()=>void appAction('approve')}>Approve</button><button className="danger" onClick={()=>void appAction('reject')}>Reject</button></div></section>}
+      {screen==='SA-01'&&<section className="panel"><h3>Application Review</h3><JsonBlock value={data}/><div className="grid2"><label>Application ID<input value={id} onChange={e=>setId(e.target.value)}/></label><label>Reason<input value={reason} onChange={e=>setReason(e.target.value)}/></label></div><div className="actions"><button onClick={()=>void appAction('begin-review')}>Begin Review</button><button onClick={()=>void appAction('approve')}>Approve</button><button onClick={()=>void resendFpoSetupLink()}>Resend FPO setup email</button><button className="danger" onClick={()=>void appAction('reject')}>Reject</button></div></section>}
 
       {screen==='SA-02'&&<section className="panel"><h3>Tenant Management</h3><p className="muted">Platform tenant registry and controlled status view.</p><JsonBlock value={data}/></section>}
 

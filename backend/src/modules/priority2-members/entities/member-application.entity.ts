@@ -18,6 +18,8 @@ export class MemberApplicationEntity extends TenantScopedEntity {
   @Column({ type: 'varchar', length: 255, name: 'full_name' }) fullName!: string;
   @Column({ type: 'varchar', length: 10 }) mobile!: string;
   @Column({ type: 'varchar', length: 255, nullable: true }) email!: string | null;
+  @Column({ type: 'bytea', nullable: true, name: 'photo_data', select: false }) photoData!: Buffer | null;
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'photo_mime_type' }) photoMimeType!: string | null;
   @Column({ type: 'varchar', length: 4, nullable: true, name: 'aadhaar_last4' }) aadhaarLast4!: string | null;
   @Column({ type: 'varchar', length: 10, nullable: true }) pan!: string | null;
   @Column({ type: 'date', nullable: true, name: 'date_of_birth' }) dateOfBirth!: string | null;
@@ -33,6 +35,12 @@ export class MemberApplicationEntity extends TenantScopedEntity {
   @Column({ type: 'enum', enum: MemberApplicationStatus, default: MemberApplicationStatus.PENDING }) @Index() status!: MemberApplicationStatus;
   @Column({ type: 'varchar', length: 48, nullable: true, name: 'member_number' }) memberNumber!: string | null;
   @Column({ type: 'varchar', length: 48, nullable: true, name: 'identity_card_number' }) identityCardNumber!: string | null;
+  @Column({ type: 'varchar', length: 48, nullable: true, name: 'share_certificate_number' }) shareCertificateNumber!: string | null;
+  @Column({ type: 'varchar', length: 48, nullable: true, name: 'folio_number' }) folioNumber!: string | null;
+  @Column({ type: 'varchar', length: 48, nullable: true, name: 'distinctive_from' }) distinctiveFrom!: string | null;
+  @Column({ type: 'varchar', length: 48, nullable: true, name: 'distinctive_to' }) distinctiveTo!: string | null;
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'board_resolution_ref' }) boardResolutionRef!: string | null;
+  @Column({ type: 'timestamptz', nullable: true, name: 'share_certificate_issued_at' }) shareCertificateIssuedAt!: Date | null;
   @Column({ type: 'uuid', nullable: true, name: 'reviewed_by_user_id' }) reviewedByUserId!: string | null;
   @Column({ type: 'timestamptz', nullable: true, name: 'reviewed_at' }) reviewedAt!: Date | null;
   @Column({ type: 'text', nullable: true, name: 'decision_note' }) decisionNote!: string | null;

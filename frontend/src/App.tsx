@@ -38,7 +38,7 @@ export default function App() {
         {platformLoggedIn && <button className="nav-button" onClick={platformLogout}>Platform Logout</button>}
       </nav>
       <Routes>
-        <Route path="/" element={<RegistrationWizard />} />
+        <Route path="/" element={new URLSearchParams(window.location.search).get("setupToken") ? <PlatformAdminLogin onLoggedIn={() => setPlatformLoggedIn(true)} /> : <RegistrationWizard />} />
         <Route path="/register" element={<RegistrationWizard />} />
         <Route
           path="/login"

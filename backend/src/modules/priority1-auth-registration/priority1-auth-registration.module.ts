@@ -24,7 +24,7 @@ import { GoLiveGateService } from './services/go-live-gate.service.js';
 import { OnboardingService } from './services/onboarding.service.js';
 
 import { FPO_CODE_GENERATOR_PORT } from './services/fpo-code-generator.port.js';
-import { NotImplementedFpoCodeGeneratorAdapter } from './services/fpo-code-generator.not-implemented.adapter.js';
+import { DatabaseFpoCodeGeneratorAdapter } from './services/database-fpo-code-generator.adapter.js';
 
 import {
   BRANCH_EXISTENCE_PORT,
@@ -87,7 +87,7 @@ import { OnboardingController } from './controllers/onboarding.controller.js';
     PasswordResetService,
     GoLiveGateService,
     OnboardingService,
-    { provide: FPO_CODE_GENERATOR_PORT, useClass: NotImplementedFpoCodeGeneratorAdapter },
+    { provide: FPO_CODE_GENERATOR_PORT, useClass: DatabaseFpoCodeGeneratorAdapter },
     { provide: LOAN_OR_INPUT_CREDIT_PRODUCT_PORT, useClass: NotImplementedLoanOrInputCreditProductAdapter },
     { provide: CHART_OF_ACCOUNTS_PORT, useClass: NotImplementedChartOfAccountsAdapter },
     { provide: BRANCH_EXISTENCE_PORT, useClass: NotImplementedBranchExistenceAdapter },

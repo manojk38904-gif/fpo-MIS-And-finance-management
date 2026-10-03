@@ -88,6 +88,12 @@ export class PlatformAdminController {
     return this.platform.approveApplication(id, actor.id, dto.reason);
   }
 
+  @Post('tenants/:id/resend-setup-link')
+  resendFpoSetupLink(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    const actor = this.actor(req, true);
+    return this.platform.resendFpoSetupLink(id, actor.id);
+  }
+
   @Post('applications/:id/reject')
   rejectApplication(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: ApplicationDecisionDto) {
     const actor = this.actor(req, true);

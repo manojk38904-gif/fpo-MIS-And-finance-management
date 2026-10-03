@@ -18,6 +18,7 @@ import { TenantActivationService } from './services/tenant-activation.service.js
 import { TotpService } from './services/totp.service.js';
 import { AuthService } from './services/auth.service.js';
 import { PlatformAdminAuthService } from './services/platform-admin-auth.service.js';
+import { PlatformAdminBootstrapService } from './services/platform-admin-bootstrap.service.js';
 import { PasswordResetService } from './services/password-reset.service.js';
 import { GoLiveGateService } from './services/go-live-gate.service.js';
 import { OnboardingService } from './services/onboarding.service.js';
@@ -82,6 +83,7 @@ import { OnboardingController } from './controllers/onboarding.controller.js';
     TotpService,
     AuthService,
     PlatformAdminAuthService,
+    PlatformAdminBootstrapService,
     PasswordResetService,
     GoLiveGateService,
     OnboardingService,

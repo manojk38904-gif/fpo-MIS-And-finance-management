@@ -81,10 +81,6 @@ export interface AppConfig {
     fromAddress: string;
   };
   /** Correction-pass item 12 — document-upload boundary. */
-  resend: {
-    apiKey: process.env.RESEND_API_KEY ?? '',
-    fromAddress: process.env.RESEND_FROM_ADDRESS ?? 'FPO MIS <onboarding@resend.dev>',
-  },
   upload: {
     maxSizeBytes: number;
     allowedMimeTypes: string[];
@@ -156,6 +152,10 @@ export default (): AppConfig => ({
     user: process.env.SMTP_USER ?? '',
     pass: process.env.SMTP_PASS ?? '',
     fromAddress: process.env.SMTP_FROM_ADDRESS ?? 'no-reply@example.invalid',
+  },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY ?? '',
+    fromAddress: process.env.RESEND_FROM_ADDRESS ?? 'FPO MIS <onboarding@resend.dev>',
   },
   upload: {
     maxSizeBytes: parseInt(process.env.UPLOAD_MAX_SIZE_BYTES ?? String(10 * 1024 * 1024), 10),

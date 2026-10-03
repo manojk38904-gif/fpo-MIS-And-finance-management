@@ -7,6 +7,8 @@ import SetupPassword from './pages/SetupPassword';
 import OnboardingProgress from './pages/OnboardingProgress';
 import TenantSettingsDashboard from './pages/TenantSettingsDashboard';
 import PlatformAdminDashboard from './pages/PlatformAdminDashboard';
+import MemberApply from './pages/MemberApply';
+import MemberApplicationsAdmin from './pages/MemberApplicationsAdmin';
 import { setTenantAccessToken, setPlatformAccessToken } from './api/client';
 
 export default function App() {
@@ -33,8 +35,10 @@ export default function App() {
       <nav className="nav">
         <div className="nav-brand">FPO SaaS</div>
         <Link to="/register">Register FPO</Link>
+        <Link to="/member-apply">कृषक शेयरधारक आवेदन</Link>
         <Link to="/login">FPO Login</Link>
         {tenantLoggedIn && <Link to="/settings">Settings</Link>}
+        {tenantLoggedIn && <Link to="/members">सदस्य आवेदन</Link>}
         <Link to="/platform-admin/login">Platform Admin</Link>
         <div className="nav-spacer" />
         {tenantLoggedIn && <button className="nav-button" onClick={tenantLogout}>FPO Logout</button>}
@@ -43,6 +47,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={rootPage} />
         <Route path="/register" element={<RegistrationWizard />} />
+        <Route path="/member-apply" element={<MemberApply />} />
         <Route
           path="/login"
           element={tenantLoggedIn ? <Navigate to="/settings" replace /> : <TenantLogin onLoggedIn={() => setTenantLoggedIn(true)} />}
@@ -56,6 +61,7 @@ export default function App() {
           path="/settings/*"
           element={tenantLoggedIn ? <TenantSettingsDashboard /> : <Navigate to="/login" replace />}
         />
+        <Route path="/members" element={tenantLoggedIn ? <MemberApplicationsAdmin /> : <Navigate to="/login" replace />} />
         <Route
           path="/platform-admin/login"
           element={platformLoggedIn ? <Navigate to="/platform-admin" replace /> : <PlatformAdminLogin onLoggedIn={() => setPlatformLoggedIn(true)} />}

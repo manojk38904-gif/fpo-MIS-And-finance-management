@@ -12,10 +12,6 @@ const SUBJECTS: Record<EmailMessage['template'], string> = {
   REGISTRATION_RESUME_LINK: 'Resume your FPO registration',
 };
 
-/**
- * Production binding — generic SMTP via nodemailer. Provider credentials stay
- * in SMTP_* deployment configuration and are never logged.
- */
 @Injectable()
 export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
   private readonly logger = new Logger(SmtpEmailDeliveryAdapter.name);
@@ -26,15 +22,9 @@ export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
   private async getTransporter(): Promise<Transporter> {
     const host = this.config.get<string>('smtp.host');
     if (!host) {
-      throw new ServiceUnavailableException(
-        'Email delivery is not configured (SMTP_HOST is empty). Configure SMTP_* environment variables before this feature can send real email.',
-      );
+      throw new ServiceUnavailableException('Email delivery is not configured.');
     }
-
     if (!this.transporter) {
-      // Gmail resolves to IPv6 first in this Render region, where SMTP egress is
-      // unavailable. Resolve and connect to an IPv4 address explicitly, while
-      // retaining the hostname for TLS certificate validation.
       const { address } = await lookup(host, { family: 4 });
       this.transporter = createTransport({
         host: address,
@@ -50,16 +40,43 @@ export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
   }
 
   async send(message: EmailMessage): Promise<void> {
-    const transporter = await this.getTransporter();
-    const from = this.config.get<string>('smtp.fromAddress');
-    // Raw OTP/token values are never logged.
     this.logger.log(`Sending ${message.template} email to ${maskRecipient(message.to)}`);
+    const resendApiKey = this.config.get<string>('resend.apiKey');
+
+    if (resendApiKey) {
+      await this.sendWithResend(resendApiKey, message);
+      return;
+    }
+
+    const transporter = await this.getTransporter();
     await transporter.sendMail({
-      from,
+      from: this.config.get<string>('smtp.fromAddress'),
       to: message.to,
       subject: SUBJECTS[message.template],
       text: renderPlainTextBody(message),
     });
+  }
+
+  private async sendWithResend(apiKey: string, message: EmailMessage): Promise<void> {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: this.config.get<string>('resend.fromAddress'),
+        to: [message.to],
+        subject: SUBJECTS[message.template],
+        text: renderPlainTextBody(message),
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      this.logger.error(`Resend rejected ${message.template}: HTTP ${response.status} ${detail.slice(0, 300)}`);
+      throw new ServiceUnavailableException('Email delivery provider could not send the verification email.');
+    }
   }
 }
 

@@ -117,7 +117,12 @@ export default function RegistrationWizard() {
         <>
           <label>FPO Name<input {...field('fpoName')} /></label>
           <label>CIN<input {...field('cin')} placeholder="U12345MH2020PLC123456" /></label>
+          <label>Registration Number<input {...field('registrationNumber')} placeholder="Company/FPO registration number" /></label>
+          <label>Incorporation Date<input {...field('incorporationDate')} type="date" /></label>
           <label>PAN<input {...field('pan')} placeholder="ABCDE1234F" /></label>
+          <label>Chairman Name<input {...field('chairmanName')} /></label>
+          <label>CEO Name<input {...field('ceoName')} /></label>
+          <label>Authorised Person Name<input {...field('authorisedPersonName')} /></label>
           <label>Registered Address<input {...field('registeredAddress')} /></label>
           <label>State<input {...field('state')} /></label>
           <label>District<input {...field('district')} /></label>
@@ -153,6 +158,7 @@ export default function RegistrationWizard() {
 
       {step === 'documents' && (
         <>
+          <button disabled={busy} onClick={() => setStep('details')}>Edit Registration Details</button>
           <p>Upload mandatory documents, then submit for verification.</p>
           {DOCUMENT_TYPES.map((d) => (
             <label key={d.value} className="file-row">

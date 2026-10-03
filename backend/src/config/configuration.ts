@@ -80,6 +80,12 @@ export interface AppConfig {
     apiKey: string;
     fromAddress: string;
   };
+  /** HTTPS transactional email provider used when BREVO_API_KEY is configured. */
+  brevo: {
+    apiKey: string;
+    senderEmail: string;
+    senderName: string;
+  };
   /** Correction-pass item 12 — document-upload boundary. */
   upload: {
     maxSizeBytes: number;
@@ -156,6 +162,11 @@ export default (): AppConfig => ({
   resend: {
     apiKey: process.env.RESEND_API_KEY ?? '',
     fromAddress: process.env.RESEND_FROM_ADDRESS ?? 'FPO MIS <onboarding@resend.dev>',
+  },
+  brevo: {
+    apiKey: process.env.BREVO_API_KEY ?? '',
+    senderEmail: process.env.BREVO_SENDER_EMAIL ?? 'sanrakshitfpo@gmail.com',
+    senderName: process.env.BREVO_SENDER_NAME ?? 'Sanrakshit FPO MIS',
   },
   upload: {
     maxSizeBytes: parseInt(process.env.UPLOAD_MAX_SIZE_BYTES ?? String(10 * 1024 * 1024), 10),

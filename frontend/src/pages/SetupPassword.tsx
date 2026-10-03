@@ -11,7 +11,7 @@ import { extractErrorMessage } from '../api/client';
  */
 export default function SetupPassword() {
   const params = new URLSearchParams(window.location.search);
-  const setupToken = params.get('token') ?? '';
+  const setupToken = params.get('token') ?? params.get('fpoSetupToken') ?? '';
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [done, setDone] = useState(false);

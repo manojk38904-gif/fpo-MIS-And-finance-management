@@ -9,6 +9,7 @@ import TenantSettingsDashboard from './pages/TenantSettingsDashboard';
 import PlatformAdminDashboard from './pages/PlatformAdminDashboard';
 import MemberApply from './pages/MemberApply';
 import MemberApplicationsAdmin from './pages/MemberApplicationsAdmin';
+import LoanApplicationsAdmin from './pages/LoanApplicationsAdmin';
 import { setTenantAccessToken, setPlatformAccessToken } from './api/client';
 
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
         <Link to="/login">FPO Login</Link>
         {tenantLoggedIn && <Link to="/settings">Settings</Link>}
         {tenantLoggedIn && <Link to="/members">सदस्य आवेदन</Link>}
+        {tenantLoggedIn && <Link to="/loans">ऋण आवेदन</Link>}
         <Link to="/platform-admin/login">Platform Admin</Link>
         <div className="nav-spacer" />
         {tenantLoggedIn && <button className="nav-button" onClick={tenantLogout}>FPO Logout</button>}
@@ -69,6 +71,7 @@ export default function App() {
           element={tenantLoggedIn ? <TenantSettingsDashboard /> : <Navigate to="/login" replace />}
         />
         <Route path="/members" element={tenantLoggedIn ? <MemberApplicationsAdmin /> : <Navigate to="/login" replace />} />
+        <Route path="/loans" element={tenantLoggedIn ? <LoanApplicationsAdmin /> : <Navigate to="/login" replace />} />
         <Route
           path="/platform-admin/login"
           element={platformLoggedIn ? <Navigate to="/platform-admin" replace /> : <PlatformAdminLogin onLoggedIn={() => setPlatformLoggedIn(true)} />}

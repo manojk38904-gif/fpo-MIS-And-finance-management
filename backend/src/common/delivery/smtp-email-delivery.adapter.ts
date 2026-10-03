@@ -41,7 +41,13 @@ export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
 
   async send(message: EmailMessage): Promise<void> {
     this.logger.log(`Sending ${message.template} email to ${maskRecipient(message.to)}`);
+    const brevoApiKey = this.config.get<string>('brevo.apiKey');
     const resendApiKey = this.config.get<string>('resend.apiKey');
+
+    if (brevoApiKey) {
+      await this.sendWithBrevo(brevoApiKey, message);
+      return;
+    }
 
     if (resendApiKey) {
       await this.sendWithResend(resendApiKey, message);
@@ -75,6 +81,31 @@ export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
     if (!response.ok) {
       const detail = await response.text();
       this.logger.error(`Resend rejected ${message.template}: HTTP ${response.status} ${detail.slice(0, 300)}`);
+      throw new ServiceUnavailableException('Email delivery provider could not send the verification email.');
+    }
+  }
+
+  private async sendWithBrevo(apiKey: string, message: EmailMessage): Promise<void> {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          email: this.config.get<string>('brevo.senderEmail'),
+          name: this.config.get<string>('brevo.senderName'),
+        },
+        to: [{ email: message.to }],
+        subject: SUBJECTS[message.template],
+        textContent: renderPlainTextBody(message),
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      this.logger.error(`Brevo rejected ${message.template}: HTTP ${response.status} ${detail.slice(0, 300)}`);
       throw new ServiceUnavailableException('Email delivery provider could not send the verification email.');
     }
   }

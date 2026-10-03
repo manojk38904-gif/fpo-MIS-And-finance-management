@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Post, Req } from '@nestjs/commo
 import type { Request } from 'express';
 import { AuthService } from '../services/auth.service.js';
 import { PlatformAdminAuthService } from '../services/platform-admin-auth.service.js';
+import { PlatformAdminBootstrapService } from '../services/platform-admin-bootstrap.service.js';
 import {
   PlatformAdminLoginDto,
   PlatformAdminMfaDto,
@@ -25,6 +26,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly platformAdminAuthService: PlatformAdminAuthService,
+    private readonly platformAdminBootstrap: PlatformAdminBootstrapService,
   ) {}
 
   private requestMeta(req: Request): { ipAddress: string | null; userAgent: string | null } {
@@ -84,4 +86,11 @@ export class AuthController {
     await this.platformAdminAuthService.logout(dto.refreshToken);
     return { loggedOut: true };
   }
+
+  @Post('platform-admin/bootstrap/issue')
+  issueBootstrap(@Body() body: { key?: string }) { return this.platformAdminBootstrap.issueFirstAdminSetup(body.key ?? ''); }
+  @Post('platform-admin/bootstrap/password')
+  setBootstrapPassword(@Body() body: { token?: string; password?: string; confirmPassword?: string }) { return this.platformAdminBootstrap.setPassword(body.token ?? '', body.password ?? '', body.confirmPassword ?? ''); }
+  @Post('platform-admin/bootstrap/mfa')
+  confirmBootstrapMfa(@Body() body: { token?: string; code?: string }) { return this.platformAdminBootstrap.confirmMfa(body.token ?? '', body.code ?? ''); }
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AUDIT_EVENT_PORT } from '../../../common/audit/audit-event.port.js';
@@ -120,6 +120,8 @@ export class TenantActivationService {
     // business logic. The raw link/token is still returned to the caller
     // (today a test, eventually SA-01) for it to decide whether/where else
     // to surface it, but it is never logged.
+    const appUrl = this.config.get<string>('PUBLIC_APP_URL') ?? 'https://fpo-mis-app.onrender.com';
+    const setupUrl = `${appUrl}/?fpoSetupToken=${encodeURIComponent(setupLinkToken)}`;
     await this.emailDelivery.send({
       to: reg.officialEmail!,
       template: 'TENANT_ACTIVATED',
@@ -128,9 +130,43 @@ export class TenantActivationService {
     await this.emailDelivery.send({
       to: reg.officialEmail!,
       template: 'INITIAL_ADMIN_SETUP_LINK',
-      data: { setupLinkToken },
+      data: { setupUrl },
     });
 
     return { fpoCode, setupLinkToken };
+  }
+
+  async reissueInitialAdminSetup(registrationId: string): Promise<void> {
+    const reg = await this.dataSource.getRepository(FpoRegistrationEntity).findOne({ where: { id: registrationId } });
+    if (!reg || reg.status !== FpoRegistrationStatus.ACTIVE || !reg.fpoCode || !reg.officialEmail) {
+      throw new BadRequestException('Only an active FPO with an official email can receive a setup link.');
+    }
+
+    const setupLinkToken = this.hasher.generateOpaqueSecret();
+    const expiryHours = this.config.get<number>('setupLink.expiryHours') ?? 72;
+    await this.knownTenantTx.run(reg.id, async (manager) => {
+      const userRepo = manager.getRepository(UserAccountEntity);
+      const admin = await userRepo.findOne({ where: { tenantId: reg.id, isInitialFpoAdmin: true } });
+      if (!admin) throw new BadRequestException('Initial FPO Admin account was not found.');
+      if (admin.passwordHash) throw new ConflictException('The FPO Admin password has already been set.');
+
+      const tokenRepo = manager.getRepository(SetupTokenEntity);
+      await tokenRepo.delete({ tenantId: reg.id });
+      await tokenRepo.save(tokenRepo.create({
+        tenantId: reg.id,
+        userId: admin.id,
+        tokenHash: this.hasher.hash(setupLinkToken),
+        expiresAt: new Date(Date.now() + expiryHours * 60 * 60 * 1000),
+        usedAt: null,
+      }));
+    });
+
+    const appUrl = this.config.get<string>('PUBLIC_APP_URL') ?? 'https://fpo-mis-app.onrender.com';
+    await this.emailDelivery.send({
+      to: reg.officialEmail,
+      template: 'INITIAL_ADMIN_SETUP_LINK',
+      data: { setupUrl: `${appUrl}/?fpoSetupToken=${encodeURIComponent(setupLinkToken)}` },
+    });
+    await this.audit.record({ eventType: 'setup_token.reissued', tenantId: reg.id, subjectId: reg.id, metadata: {} });
   }
 }

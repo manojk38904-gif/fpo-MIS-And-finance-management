@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { platformAdminLogin, platformAdminVerifyMfa } from '../api/auth';
-import { setPlatformAccessToken, extractErrorMessage } from '../api/client';
+import { api, setPlatformAccessToken, extractErrorMessage } from '../api/client';
 
 /** SYS-01-B — platform admin login is always two-step: password, then mandatory TOTP. */
 export default function PlatformAdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
@@ -11,6 +11,10 @@ export default function PlatformAdminLogin({ onLoggedIn }: { onLoggedIn: () => v
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showRecoveryHelp, setShowRecoveryHelp] = useState(false);
+  const setupToken = new URLSearchParams(window.location.search).get('setupToken');
+  const [setupPassword, setSetupPassword] = useState('');
+  const [setupPasswordConfirm, setSetupPasswordConfirm] = useState('');
+  const [totpUri, setTotpUri] = useState<string | null>(null);
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +46,10 @@ export default function PlatformAdminLogin({ onLoggedIn }: { onLoggedIn: () => v
       setBusy(false);
     }
   }
+
+  async function submitSetupPassword(e: React.FormEvent) { e.preventDefault(); setError(null); setBusy(true); try { const { data } = await api.post('/auth/platform-admin/bootstrap/password', { token: setupToken, password: setupPassword, confirmPassword: setupPasswordConfirm }); setTotpUri(data.totpUri); } catch (e) { setError(extractErrorMessage(e)); } finally { setBusy(false); } }
+  async function submitSetupMfa(e: React.FormEvent) { e.preventDefault(); setError(null); setBusy(true); try { await api.post('/auth/platform-admin/bootstrap/mfa', { token: setupToken, code: totpCode }); window.history.replaceState({}, '', '/platform-admin/login'); setTotpUri(null); setError('Setup complete. Sign in with your new password.'); } catch (e) { setError(extractErrorMessage(e)); } finally { setBusy(false); } }
+  if (setupToken) return totpUri ? <form className="card" onSubmit={submitSetupMfa}><h1>Set up authenticator</h1>{error && <div className="error">{error}</div>}<p>Add this setup key to Google Authenticator, then enter its 6-digit code:</p><label>Authenticator setup key<input value={totpUri} readOnly /></label><label>6-digit code<input value={totpCode} onChange={(e) => setTotpCode(e.target.value)} maxLength={6} required /></label><button disabled={busy}>{busy ? 'Please wait…' : 'Finish setup'}</button></form> : <form className="card" onSubmit={submitSetupPassword}><h1>Create Platform Admin password</h1>{error && <div className="error">{error}</div>}<label>New password<input type="password" value={setupPassword} onChange={(e) => setSetupPassword(e.target.value)} required /></label><label>Confirm new password<input type="password" value={setupPasswordConfirm} onChange={(e) => setSetupPasswordConfirm(e.target.value)} required /></label><button disabled={busy}>{busy ? 'Please wait…' : 'Continue to MFA setup'}</button></form>;
 
   if (mfaSessionToken) {
     return (

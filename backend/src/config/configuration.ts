@@ -75,7 +75,16 @@ export interface AppConfig {
     pass: string;
     fromAddress: string;
   };
+  /** HTTPS transactional email provider used when RESEND_API_KEY is configured. */
+  resend: {
+    apiKey: string;
+    fromAddress: string;
+  };
   /** Correction-pass item 12 — document-upload boundary. */
+  resend: {
+    apiKey: process.env.RESEND_API_KEY ?? '',
+    fromAddress: process.env.RESEND_FROM_ADDRESS ?? 'FPO MIS <onboarding@resend.dev>',
+  },
   upload: {
     maxSizeBytes: number;
     allowedMimeTypes: string[];

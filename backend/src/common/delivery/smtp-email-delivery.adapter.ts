@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { lookup } from 'node:dns/promises';
 import { createTransport, type Transporter } from 'nodemailer';
 import type { EmailDeliveryPort, EmailMessage } from './email-delivery.port.js';
 
@@ -12,14 +13,8 @@ const SUBJECTS: Record<EmailMessage['template'], string> = {
 };
 
 /**
- * Production binding (correction-pass item 9) — generic SMTP via nodemailer,
- * a provider-agnostic transport, never a vendor SDK (no AWS SES / SendGrid
- * client hard-wired into business logic). Actual provider account
- * credentials (SMTP host/user/pass, or an SMTP-compatible endpoint a vendor
- * exposes) remain deployment configuration (SMTP_* env vars), exactly as the
- * frozen cloud-architecture rule requires. If SMTP is not configured
- * (SMTP_HOST empty) this fails LOUDLY on send — it never silently drops a
- * message or falls back to logging a secret.
+ * Production binding — generic SMTP via nodemailer. Provider credentials stay
+ * in SMTP_* deployment configuration and are never logged.
  */
 @Injectable()
 export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
@@ -28,35 +23,36 @@ export class SmtpEmailDeliveryAdapter implements EmailDeliveryPort {
 
   constructor(private readonly config: ConfigService) {}
 
-  private getTransporter(): Transporter {
+  private async getTransporter(): Promise<Transporter> {
     const host = this.config.get<string>('smtp.host');
     if (!host) {
       throw new ServiceUnavailableException(
         'Email delivery is not configured (SMTP_HOST is empty). Configure SMTP_* environment variables before this feature can send real email.',
       );
     }
+
     if (!this.transporter) {
+      // Gmail resolves to IPv6 first in this Render region, where SMTP egress is
+      // unavailable. Resolve and connect to an IPv4 address explicitly, while
+      // retaining the hostname for TLS certificate validation.
+      const { address } = await lookup(host, { family: 4 });
       this.transporter = createTransport({
-        host,
+        host: address,
         port: this.config.get<number>('smtp.port'),
         secure: this.config.get<boolean>('smtp.secure'),
-        // Render's free service cannot route to Gmail's IPv6 SMTP address.
-        // Prefer IPv4 so the configured SMTP provider stays reachable.
-        family: 4,
+        tls: { servername: host },
         auth: this.config.get<string>('smtp.user')
           ? { user: this.config.get<string>('smtp.user'), pass: this.config.get<string>('smtp.pass') }
           : undefined,
-      } as any);
+      });
     }
     return this.transporter;
   }
 
   async send(message: EmailMessage): Promise<void> {
-    const transporter = this.getTransporter();
+    const transporter = await this.getTransporter();
     const from = this.config.get<string>('smtp.fromAddress');
-    // NEVER log `message.data` (it may contain a raw OTP/token) — only
-    // structural metadata (recipient, template) is logged, matching the
-    // frozen "raw OTP/token value never logged" rule.
+    // Raw OTP/token values are never logged.
     this.logger.log(`Sending ${message.template} email to ${maskRecipient(message.to)}`);
     await transporter.sendMail({
       from,

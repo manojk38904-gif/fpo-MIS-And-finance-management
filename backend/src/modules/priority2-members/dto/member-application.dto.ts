@@ -5,6 +5,7 @@ export class CreateMemberApplicationDto {
   @IsString() @MinLength(3) fullName!: string;
   @Matches(/^[6-9]\d{9}$/) mobile!: string;
   @IsOptional() @IsEmail() email?: string;
+  @IsString() photoData!: string;
   @IsOptional() @Matches(/^\d{4}$/) aadhaarLast4?: string;
   @IsOptional() @Matches(/^[A-Z]{5}\d{4}[A-Z]$/) pan?: string;
   @IsOptional() @IsDateString() dateOfBirth?: string;
@@ -22,4 +23,8 @@ export class CreateMemberApplicationDto {
 export class DecideMemberApplicationDto {
   @IsIn(['APPROVED', 'REJECTED']) status!: 'APPROVED' | 'REJECTED';
   @IsOptional() @IsString() @MinLength(3) note?: string;
+}
+
+export class IssueShareCertificateDto {
+  @IsString() @MinLength(3) boardResolutionRef!: string;
 }

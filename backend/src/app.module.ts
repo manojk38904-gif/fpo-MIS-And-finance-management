@@ -18,6 +18,7 @@ import { AuditModule } from './common/audit/audit.module.js';
 import { Priority1AuthRegistrationModule } from './modules/priority1-auth-registration/priority1-auth-registration.module.js';
 import { Priority13AdminSettingsModule } from './modules/priority13-admin-settings/priority13-admin-settings.module.js';
 import { Priority18PlatformAdminModule } from './modules/priority18-platform-admin/priority18-platform-admin.module.js';
+import { Priority2MembersModule } from './modules/priority2-members/priority2-members.module.js';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { Priority18PlatformAdminModule } from './modules/priority18-platform-adm
     Priority1AuthRegistrationModule,
     Priority13AdminSettingsModule,
     Priority18PlatformAdminModule,
+    Priority2MembersModule,
   ],
   providers: [
     // Execution order for a request: Guards (in provider order) -> Interceptors.
